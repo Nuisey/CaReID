@@ -66,3 +66,14 @@ Based on our discussion, here is how the technical challenges will be resolved:
 3.  **Project Location & Isolation**:
     *   **Solution**: The entire system will be completely self-contained within `C:\Users\nolan\OneDrive\Programming\CarID_Final`.
     *   *Implementation Details*: I will migrate all essential assets from your previous `CaReIDInference` project. This includes the model weights/config (`Brain/`), the gallery dataset, the label mapping, and core utility scripts (`model.py`, `load_model.py`, `dataset.py`). The main tracking and identification scripts will be re-written inside this new folder to directly power the Flask web app without relying on the old project directory.
+
+## 4. Improvements
+
+Per your request, I will implement the following two features:
+
+1.  **Correcting a Label in the Timeline**:
+    *   **Solution**: I will add an "Edit" button to the car label on each timeline card. Clicking it will open a search modal (just like the map's assign modal) pre-populated with all the vehicles from `label_map.csv`. 
+    *   *Backend Logic*: When you submit a correction, the frontend will hit a new `/api/update_label` endpoint. The Flask backend will find the corresponding event in `CarLabels_Unprocessed.csv` by matching the exact filename, update the predicted ID and label in the CSV, and immediately refresh the timeline to show your correction.
+2.  **Deduplicating Timeline Images**:
+    *   **Solution**: Currently, YOLO takes a burst of pictures of a car while it's in the frame. I will update the backend timeline builder (`/api/timeline`) to group these bursts together. 
+    *   *Backend Logic*: If the system sees multiple images of the exact same car ID going the exact same direction within a short time window (e.g., 60 seconds), it will filter them down to a single event. It will display the image that had the highest confidence score from that burst, keeping your timeline perfectly clean and concise!

@@ -18,6 +18,22 @@
         </div>
     </div>
 
+    <!-- Edit Label Modal -->
+    <div id="edit-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Correct Label</h3>
+            <p>Select the correct identity for this vehicle:</p>
+            <input list="edit-car-list" id="edit-car-select" placeholder="Search color, make, model...">
+            <datalist id="edit-car-list">
+                <!-- populated dynamically -->
+            </datalist>
+            <div style="margin-top: 15px;">
+                <button id="edit-save-btn">Save</button>
+                <button onclick="document.getElementById('edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/timeline.js"></script>
 </body>
 </html>

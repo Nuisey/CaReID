@@ -84,21 +84,47 @@ def api_timeline():
                 parts = filename.split("__")
                 timestamp_str = parts[0] if len(parts) > 0 else "Unknown"
                 
-                display_time = timestamp_str
                 try:
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d_%H-%M-%S-%f")
-                    display_time = dt.strftime("%b %d, %Y - %I:%M:%S %p")
                 except:
-                    pass
+                    continue
                 
-                feed.append({
+                display_time = dt.strftime("%b %d, %Y - %I:%M:%S %p")
+                conf_val = float(row.get("confidence", 0.0)) if row.get("confidence") else 0.0
+                
+                event = {
                     "filename": filename,
                     "direction": row.get("direction", "unknown"),
                     "predicted_label": row.get("predicted_label", ""),
                     "id": row.get("ID", ""),
                     "time": display_time,
-                    "confidence": row.get("confidence", "")
-                })
+                    "timestamp_obj": dt,
+                    "confidence": conf_val
+                }
+                
+                # Deduplication logic
+                is_burst = False
+                for past_event in reversed(feed):
+                    time_diff = (dt - past_event["timestamp_obj"]).total_seconds()
+                    if time_diff > 60:
+                        break # Stop looking if the event is older than 60 seconds
+                        
+                    if past_event["id"] == event["id"] and past_event["direction"] == event["direction"]:
+                        is_burst = True
+                        if event["confidence"] > past_event["confidence"]:
+                            # Replace with the higher confidence image from the burst
+                            past_event["filename"] = event["filename"]
+                            past_event["confidence"] = event["confidence"]
+                            past_event["time"] = event["time"]
+                            past_event["timestamp_obj"] = event["timestamp_obj"]
+                        break
+                        
+                if not is_burst:
+                    feed.append(event)
+                    
+    for e in feed:
+        del e["timestamp_obj"]
+        
     # Reverse to have newest at top
     feed.reverse()
     return jsonify(feed)
@@ -113,6 +139,39 @@ def api_labels():
                 if len(row) >= 2:
                     labels.append({"id": row[0], "label": row[1]})
     return jsonify(labels)
+
+@app.route("/api/update_label", methods=["POST"])
+def api_update_label():
+    data = request.json
+    filename = data.get("filename")
+    new_id = data.get("new_id")
+    new_label = data.get("new_label")
+    
+    if not filename or not new_id or not new_label:
+        return jsonify({"status": "error", "message": "Missing data"}), 400
+        
+    if not os.path.exists(LOG_CSV):
+        return jsonify({"status": "error", "message": "CSV not found"}), 404
+        
+    rows = []
+    updated = False
+    with open(LOG_CSV, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        for row in reader:
+            if row.get("filename") == filename:
+                row["ID"] = new_id
+                row["predicted_label"] = new_label
+                updated = True
+            rows.append(row)
+            
+    if updated:
+        with open(LOG_CSV, "w", encoding="utf-8", newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+            
+    return jsonify({"status": "success"})
 
 @app.route("/images/<filename>")
 def serve_image(filename):
