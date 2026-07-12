@@ -1,5 +1,16 @@
 const feedContainer = document.getElementById('feed');
 let currentEditFilenames = [];
+let persistedSelectedFilenames = new Set();
+
+feedContainer.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('timeline-checkbox')) {
+        if (e.target.checked) {
+            persistedSelectedFilenames.add(e.target.value);
+        } else {
+            persistedSelectedFilenames.delete(e.target.value);
+        }
+    }
+});
 
 async function loadLabels() {
     const res = await fetch('/api/labels');
@@ -14,25 +25,15 @@ async function loadLabels() {
 }
 loadLabels();
 
-window.openEditModal = function(filenames) {
-    if (!Array.isArray(filenames)) {
-        currentEditFilenames = [filenames];
+window.openEditModal = function(filename) {
+    if (persistedSelectedFilenames.has(filename)) {
+        currentEditFilenames = Array.from(persistedSelectedFilenames);
     } else {
-        currentEditFilenames = filenames;
+        currentEditFilenames = [filename];
     }
     document.getElementById('edit-car-select').value = '';
     document.getElementById('edit-modal').style.display = 'block';
 }
-
-document.getElementById('edit-selected-btn').onclick = function() {
-    const checkboxes = document.querySelectorAll('.timeline-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert("Please select at least one item to edit.");
-        return;
-    }
-    const filenames = Array.from(checkboxes).map(cb => cb.value);
-    openEditModal(filenames);
-};
 
 document.getElementById('edit-save-btn').onclick = async function() {
     const selection = document.getElementById('edit-car-select').value;
@@ -56,6 +57,7 @@ document.getElementById('edit-save-btn').onclick = async function() {
         })
     });
     
+    currentEditFilenames.forEach(f => persistedSelectedFilenames.delete(f));
     document.getElementById('edit-modal').style.display = 'none';
     loadFeed();
 }
@@ -73,9 +75,11 @@ async function loadFeed() {
                             (item.direction === 'leaving' ? 'status-leaving' : 'status-unknown');
         const statusText = item.direction.toUpperCase();
         
+        const isChecked = persistedSelectedFilenames.has(item.filename) ? 'checked' : '';
+        
         div.innerHTML = `
             <div style="display: flex; align-items: center; margin-right: 15px;">
-                <input type="checkbox" class="timeline-checkbox" value="${item.filename}" style="width: 20px; height: 20px; cursor: pointer;">
+                <input type="checkbox" class="timeline-checkbox" value="${item.filename}" style="width: 20px; height: 20px; cursor: pointer;" ${isChecked}>
             </div>
             <img src="/images/${item.filename}" alt="Car crop">
             <div class="timeline-details">
