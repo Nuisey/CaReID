@@ -90,10 +90,10 @@ while cap.isOpened():
 
                         if (
                             current_time - program_start_time >= 20
+                            and duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
                             and duration_in_frame < 15
                             and time_since_last_save >= 1
                         ):
-                            track_history[track_id]['last_save_time'] = current_time
                             
                             # Determine Direction (Arriving vs Leaving)
                             y_hist = track_history[track_id]['y_history']
@@ -105,14 +105,18 @@ while cap.isOpened():
                                 elif dy < -10:
                                     direction = "leaving"  # moving upward
 
-                            cropped_vehicle = frame[y1:y2, x1:x2]
+                            # SOLUTION: Only save if the car is actively moving! (Ignores parked cars)
+                            if direction != "unknown":
+                                track_history[track_id]['last_save_time'] = current_time
+                                
+                                cropped_vehicle = frame[y1:y2, x1:x2]
 
-                            if cropped_vehicle.size > 0:
-                                timestamp = datetime.now(ZoneInfo("America/New_York")).strftime('%Y-%m-%d_%H-%M-%S-%f')
-                                filename = f"{timestamp}__{direction}__{class_name}_{track_id}.jpg"
-                                save_path = os.path.join(SAVE_DIR, filename)
-                                cv2.imwrite(save_path, cropped_vehicle)
-                                print(f"Saved: {class_name} ID: {track_id} | Dir: {direction} | Duration: {duration_in_frame:.1f}s")
+                                if cropped_vehicle.size > 0:
+                                    timestamp = datetime.now(ZoneInfo("America/New_York")).strftime('%Y-%m-%d_%H-%M-%S-%f')
+                                    filename = f"{timestamp}__{direction}__{class_name}_{track_id}.jpg"
+                                    save_path = os.path.join(SAVE_DIR, filename)
+                                    cv2.imwrite(save_path, cropped_vehicle)
+                                    print(f"Saved: {class_name} ID: {track_id} | Dir: {direction} | Duration: {duration_in_frame:.1f}s")
 
         # Clean up old tracks
         obsolete_ids = set(track_history.keys()) - current_frame_track_ids
