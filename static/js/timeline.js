@@ -1,5 +1,5 @@
 const feedContainer = document.getElementById('feed');
-let currentEditFilename = null;
+let currentEditFilenames = [];
 
 async function loadLabels() {
     const res = await fetch('/api/labels');
@@ -14,11 +14,25 @@ async function loadLabels() {
 }
 loadLabels();
 
-window.openEditModal = function(filename) {
-    currentEditFilename = filename;
+window.openEditModal = function(filenames) {
+    if (!Array.isArray(filenames)) {
+        currentEditFilenames = [filenames];
+    } else {
+        currentEditFilenames = filenames;
+    }
     document.getElementById('edit-car-select').value = '';
     document.getElementById('edit-modal').style.display = 'block';
 }
+
+document.getElementById('edit-selected-btn').onclick = function() {
+    const checkboxes = document.querySelectorAll('.timeline-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert("Please select at least one item to edit.");
+        return;
+    }
+    const filenames = Array.from(checkboxes).map(cb => cb.value);
+    openEditModal(filenames);
+};
 
 document.getElementById('edit-save-btn').onclick = async function() {
     const selection = document.getElementById('edit-car-select').value;
@@ -36,7 +50,7 @@ document.getElementById('edit-save-btn').onclick = async function() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            filename: currentEditFilename,
+            filenames: currentEditFilenames,
             new_id: new_id,
             new_label: new_label
         })
@@ -60,10 +74,13 @@ async function loadFeed() {
         const statusText = item.direction.toUpperCase();
         
         div.innerHTML = `
+            <div style="display: flex; align-items: center; margin-right: 15px;">
+                <input type="checkbox" class="timeline-checkbox" value="${item.filename}" style="width: 20px; height: 20px; cursor: pointer;">
+            </div>
             <img src="/images/${item.filename}" alt="Car crop">
             <div class="timeline-details">
                 <h3>${item.predicted_label} (ID: ${item.id}) 
-                    <button onclick="openEditModal('${item.filename}')" style="margin-left: 10px; font-size: 12px; padding: 2px 5px; cursor:pointer;">✎ Edit</button>
+                    <button onclick="openEditModal('${item.filename}')" style="margin-left: 10px; font-size: 12px; padding: 4px 8px; cursor:pointer; background-color: #666; color: white; border: none; border-radius: 4px;">✎ Edit</button>
                 </h3>
                 <p>Time: ${item.time}</p>
                 <p>Confidence: ${parseFloat(item.confidence).toFixed(2)}</p>

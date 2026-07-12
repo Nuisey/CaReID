@@ -143,11 +143,11 @@ def api_labels():
 @app.route("/api/update_label", methods=["POST"])
 def api_update_label():
     data = request.json
-    filename = data.get("filename")
+    filenames = data.get("filenames")
     new_id = data.get("new_id")
     new_label = data.get("new_label")
     
-    if not filename or not new_id or not new_label:
+    if not filenames or not new_id or not new_label:
         return jsonify({"status": "error", "message": "Missing data"}), 400
         
     if not os.path.exists(LOG_CSV):
@@ -159,7 +159,7 @@ def api_update_label():
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
         for row in reader:
-            if row.get("filename") == filename:
+            if row.get("filename") in filenames:
                 row["ID"] = new_id
                 row["predicted_label"] = new_label
                 updated = True
