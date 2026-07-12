@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CarID Homepage</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <button onclick="window.location.href='/'" class="active">Homepage</button>
+        <button onclick="window.location.href='/timeline'">Timeline</button>
+        <div class="controls">
+            <button id="customizeBtn">Customize</button>
+        </div>
+    </nav>
+    
+    <div id="mapContainer" class="map-container">
+        <div id="imageWrapper" class="image-wrapper">
+            <img src="/static/houses.png" class="bg-img" alt="Background" draggable="false">
+        </div>
+    </div>
+
+    <!-- Modal for assigning car ID -->
+    <div id="assignModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Assign Car</h3>
+            <input list="carOptions" id="carSearch" placeholder="Search by color, make, model..." autocomplete="off">
+            <datalist id="carOptions"></datalist>
+            <div style="display:flex; gap: 10px; margin-top: 10px;">
+                <button id="saveAssignBtn">Save</button>
+                <button id="cancelAssignBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

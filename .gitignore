@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Dynamic data and images
+HotFolder/
+Data/Unconfirmed/
+Data/CarLabels_Unprocessed.csv
+state.json
+
+# Large model weights (too large for standard GitHub without LFS)
+Brain/*.pth
