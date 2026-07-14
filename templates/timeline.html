@@ -8,13 +8,43 @@
 <body>
     <nav class="navbar">
         <button onclick="window.location.href='/'">Homepage</button>
-        <button onclick="window.location.href='/timeline'" class="active">Timeline</button>
+        <button onclick="window.location.href='/live'" class="active">Live</button>
     </nav>
     
-    <div class="timeline-container">
-        <h2>Activity Feed</h2>
-        <div id="feed">
-            <!-- Timeline items will be injected here -->
+    <div style="display: flex; gap: 30px; margin: 20px; align-items: flex-start;">
+        <!-- Left Side: Live Camera & Logs -->
+        <div style="flex: 1; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <img src="/video_feed" alt="Live Camera Feed Not Connected" style="width: 100%; height: auto; object-fit: contain; background-color: #000; display: block;">
+            </div>
+            
+            <div style="background-color: #111; padding: 15px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: 'Courier New', Courier, monospace; color: #0f0; height: 250px; overflow-y: auto;" id="system-logs">
+                <div style="color: #fff; margin-bottom: 5px;">[System] Initializing CaReID System...</div>
+                <div style="color: #fff; margin-bottom: 5px;">[System] Waiting for live events...</div>
+            </div>
+        </div>
+        
+        <!-- Right Side: Timeline -->
+        <div style="width: 600px; min-width: 600px;">
+            <div class="timeline-container" style="margin: 0; max-width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>Activity Feed</h2>
+                </div>
+                <div id="feed">
+                    <!-- Timeline items will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inspect Burst Modal -->
+    <div id="inspect-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; width: 90%; text-align: center;">
+            <h3 id="inspect-title">Burst Images</h3>
+            <div id="inspect-gallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; overflow-y: auto; max-height: 60vh; padding: 15px 0;">
+                <!-- Images injected here -->
+            </div>
+            <button onclick="document.getElementById('inspect-modal').style.display='none'">Close</button>
         </div>
     </div>
 

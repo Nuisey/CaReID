@@ -65,17 +65,18 @@ class NewImageHandler(FileSystemEventHandler):
         self.csv_lock = csv_lock
         
         self.processed_files = set()
+        self.track_features = {} # Stores features per track_id for Feature Averaging
         os.makedirs(self.processed_folder_path, exist_ok=True)
 
-    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence):
+    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id):
         with self.csv_lock:
             try:
                 file_exists = os.path.isfile(self.log_csv_path)
                 with open(self.log_csv_path, mode='a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     if not file_exists:
-                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence'])
-                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}"])
+                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id'])
+                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id])
             except Exception as e:
                 print(f"Error writing to CSV: {e}")
 
@@ -88,8 +89,10 @@ class NewImageHandler(FileSystemEventHandler):
         
         parts = filename.split("__")
         direction = "unknown"
-        if len(parts) >= 2:
+        track_id = "unknown"
+        if len(parts) >= 3:
             direction = parts[1]
+            track_id = parts[2]
 
         if wait_for_write:
             time.sleep(0.5)
@@ -100,16 +103,26 @@ class NewImageHandler(FileSystemEventHandler):
             return
 
         query_feature = extract_single_feature(self.model, query_tensor, self.device)
-        similarities = F.cosine_similarity(query_feature, self.gallery_features)
+        
+        # Strategy 4: Feature Averaging
+        if track_id not in self.track_features:
+            self.track_features[track_id] = []
+        self.track_features[track_id].append(query_feature)
+        
+        # Average all features collected for this track_id so far
+        stacked_features = torch.stack(self.track_features[track_id])
+        avg_feature = torch.mean(stacked_features, dim=0)
+
+        similarities = F.cosine_similarity(avg_feature, self.gallery_features)
 
         best_match_index = torch.argmax(similarities).item()
         predicted_id = self.gallery_labels[best_match_index]
         confidence = similarities[best_match_index].item()
 
         natural_label = self.label_mapping.get(str(predicted_id), "Unknown")
-        print(f"Car: {natural_label} | Dir: {direction} | ID: {predicted_id} | Conf: {confidence:.2f}")
+        print(f"Car: {natural_label} | Dir: {direction} | Track: {track_id} | Conf: {confidence:.2f}")
 
-        self.log_to_csv(filename, direction, natural_label, predicted_id, confidence)
+        self.log_to_csv(filename, direction, natural_label, predicted_id, confidence, track_id)
 
         try:
             dest_path = os.path.join(self.processed_folder_path, filename)

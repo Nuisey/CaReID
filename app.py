@@ -1,10 +1,13 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response
 import os
 import json
 import csv
 from datetime import datetime
+import time
 
 app = Flask(__name__)
+
+latest_frame = None
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -56,9 +59,27 @@ def update_car_statuses():
 def index():
     return render_template("index.html")
 
-@app.route("/timeline")
-def timeline():
+@app.route("/live")
+def live():
     return render_template("timeline.html")
+
+@app.route("/api/push_frame", methods=["POST"])
+def api_push_frame():
+    global latest_frame
+    latest_frame = request.data
+    return "OK", 200
+
+def gen_frames():
+    global latest_frame
+    while True:
+        if latest_frame is not None:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + latest_frame + b'\r\n')
+        time.sleep(0.05)
+
+@app.route("/video_feed")
+def video_feed():
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route("/api/state", methods=["GET", "POST"])
 def api_state():
@@ -97,26 +118,35 @@ def api_timeline():
                     "direction": row.get("direction", "unknown"),
                     "predicted_label": row.get("predicted_label", ""),
                     "id": row.get("ID", ""),
+                    "track_id": row.get("track_id", ""),
                     "time": display_time,
                     "timestamp_obj": dt,
-                    "confidence": conf_val
+                    "confidence": conf_val,
+                    "burst_images": [filename]
                 }
                 
-                # Deduplication logic
+                # Deduplication logic (Strategy 1 & 3 combined)
                 is_burst = False
                 for past_event in reversed(feed):
                     time_diff = (dt - past_event["timestamp_obj"]).total_seconds()
                     if time_diff > 60:
                         break # Stop looking if the event is older than 60 seconds
                         
-                    if past_event["id"] == event["id"] and past_event["direction"] == event["direction"]:
+                    past_track = past_event.get("track_id", past_event["id"])
+                    curr_track = event.get("track_id", event["id"])
+                        
+                    if (past_track == curr_track) and past_event["direction"] == event["direction"]:
                         is_burst = True
+                        past_event["burst_images"].append(filename)
+                        
+                        # Strategy 3: Max-Confidence Override overrides the label for the entire burst
                         if event["confidence"] > past_event["confidence"]:
-                            # Replace with the higher confidence image from the burst
                             past_event["filename"] = event["filename"]
                             past_event["confidence"] = event["confidence"]
                             past_event["time"] = event["time"]
                             past_event["timestamp_obj"] = event["timestamp_obj"]
+                            past_event["predicted_label"] = event["predicted_label"]
+                            past_event["id"] = event["id"]
                         break
                         
                 if not is_burst:

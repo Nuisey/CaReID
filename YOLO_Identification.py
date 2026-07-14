@@ -4,6 +4,22 @@ import time
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import requests
+import threading
+
+latest_buffer = None
+
+def frame_sender():
+    global latest_buffer
+    while True:
+        if latest_buffer is not None:
+            try:
+                requests.post('http://127.0.0.1:5000/api/push_frame', data=latest_buffer, timeout=1.0)
+            except:
+                pass
+        time.sleep(0.05)
+
+threading.Thread(target=frame_sender, daemon=True).start()
 
 # Track vehicles and their Y-coordinate history
 # Format: {track_id: {'first_seen_time': timestamp, 'last_save_time': timestamp, 'y_history': []}}
@@ -113,7 +129,7 @@ while cap.isOpened():
 
                                 if cropped_vehicle.size > 0:
                                     timestamp = datetime.now(ZoneInfo("America/New_York")).strftime('%Y-%m-%d_%H-%M-%S-%f')
-                                    filename = f"{timestamp}__{direction}__{class_name}_{track_id}.jpg"
+                                    filename = f"{timestamp}__{direction}__track{track_id}__{class_name}.jpg"
                                     save_path = os.path.join(SAVE_DIR, filename)
                                     cv2.imwrite(save_path, cropped_vehicle)
                                     print(f"Saved: {class_name} ID: {track_id} | Dir: {direction} | Duration: {duration_in_frame:.1f}s")
@@ -128,6 +144,12 @@ while cap.isOpened():
 
     cv2.putText(annotated_frame, f"FPS: {int(fps)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.imshow(main_window_name, annotated_frame)
+    
+    # Send compressed frame to Flask Dashboard
+    small_frame = cv2.resize(annotated_frame, (854, 480))
+    success_encode, buffer = cv2.imencode('.jpg', small_frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+    if success_encode:
+        latest_buffer = buffer.tobytes()
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break

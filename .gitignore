@@ -10,3 +10,7 @@ state.json
 
 # Large model weights (too large for standard GitHub without LFS)
 Brain/*.pth
+*.pt
+
+# Planning documents
+obbyPlan/
