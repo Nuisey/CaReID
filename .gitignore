@@ -7,6 +7,7 @@ HotFolder/
 Data/Unconfirmed/
 Data/CarLabels_Unprocessed.csv
 state.json
+Data/gemini_state.json
 
 # Large model weights (too large for standard GitHub without LFS)
 Brain/*.pth
@@ -14,3 +15,6 @@ Brain/*.pth
 
 # Planning documents
 obbyPlan/
+
+# Environment Variables
+.env

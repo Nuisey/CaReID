@@ -4,13 +4,143 @@ import json
 import csv
 from datetime import datetime
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
+import threading
+import shutil
+import queue
+
+try:
+    from google import genai
+    import base64
+    import PIL.Image
+except ImportError:
+    pass
 
 app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+GEMINI_STATE_FILE = os.path.join(BASE_DIR, "Data", "gemini_state.json")
+
+def load_gemini_state():
+    if os.path.exists(GEMINI_STATE_FILE):
+        try:
+            with open(GEMINI_STATE_FILE, "r") as f:
+                data = json.load(f)
+                return data.get("tasks", {}), data.get("results", {}), data.get("batch_job_name", None), data.get("batch_start_time", None)
+        except:
+            pass
+    return {}, {}, None, None
+
+def save_gemini_state():
+    with open(GEMINI_STATE_FILE, "w") as f:
+        json.dump({
+            "tasks": gemini_tasks,
+            "results": gemini_results,
+            "batch_job_name": current_batch_job_name,
+            "batch_start_time": current_batch_start_time
+        }, f)
+
+gemini_tasks, gemini_results, current_batch_job_name, current_batch_start_time = load_gemini_state()
+sync_logs = []
+
+
+def add_sync_log(msg):
+    t = datetime.now().strftime('%H:%M:%S')
+    sync_logs.append(f"[{t}] {msg}")
+    if len(sync_logs) > 100: sync_logs.pop(0)
+
+def gemini_worker():
+    global current_batch_job_name
+    while True:
+        queued_tracks = [t for t, s in gemini_tasks.items() if s == 'queued']
+        if not queued_tracks:
+            time.sleep(2)
+            continue
+            
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            time.sleep(5)
+            continue
+            
+        client = genai.Client(api_key=api_key)
+        
+        try:
+            feed = get_timeline_feed()
+            feed_dict = {(e.get('track_id') or e.get('id')): e for e in feed}
+            
+            labels = []
+            if os.path.exists(LABEL_MAP):
+                with open(LABEL_MAP, "r", encoding="utf-8") as f:
+                    for row in csv.reader(f):
+                        if len(row) >= 2: labels.append(row[1])
+                        
+            prompt_text = f"You are a car identification expert. Look at these images of the EXACT SAME car from different angles. Here is a list of known cars in my database: {', '.join(labels)}. If the car exactly matches one of these, reply ONLY with the exact label from the list. If it is a completely new car not on the list, propose a short descriptive label (e.g. 'Silver 2020 Honda Civic') prefixed with 'NEW - '."
+            
+            current_backoff = 5.0
+            
+            for t_id in queued_tracks:
+                if gemini_tasks.get(t_id) != 'queued':
+                    continue
+                    
+                event = feed_dict.get(t_id)
+                if not event: continue
+                
+                contents = [prompt_text]
+                valid = False
+                for img_name in event['burst_images']:
+                    img_path = os.path.join(UNCONFIRMED_DIR, img_name)
+                    if os.path.exists(img_path):
+                        contents.append(PIL.Image.open(img_path))
+                        valid = True
+                        
+                if not valid:
+                    gemini_tasks[t_id] = 'error'
+                    save_gemini_state()
+                    continue
+                    
+                gemini_tasks[t_id] = 'checking'
+                save_gemini_state()
+                add_sync_log(f"Started checking track {t_id}...")
+                
+                while True:
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-3.5-flash",
+                            contents=contents
+                        )
+                        result = response.text.strip() if response.text else ""
+                        gemini_results[t_id] = result
+                        gemini_tasks[t_id] = 'checked'
+                        add_sync_log(f"Finished track {t_id} -> {result}")
+                        save_gemini_state()
+                        current_backoff = 5.0
+                        break
+                    except Exception as e:
+                        err_str = str(e)
+                        if '429' in err_str or 'quota' in err_str.lower() or 'exhausted' in err_str.lower():
+                            add_sync_log(f"Rate limit hit. Pausing {current_backoff}s...")
+                            time.sleep(current_backoff)
+                            current_backoff = min(current_backoff * 2, 300)
+                        else:
+                            add_sync_log(f"Gemini API Error on {t_id}: {err_str[:100]}")
+                            gemini_tasks[t_id] = 'error'
+                            save_gemini_state()
+                            break
+                            
+                time.sleep(4.0)
+                        
+        except Exception as e:
+            add_sync_log(f"Worker Error: {str(e)[:100]}")
+            time.sleep(10)
+
+threading.Thread(target=gemini_worker, daemon=True).start()
 
 latest_frame = None
 
 # Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR is defined at top of file
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
 LOG_CSV = os.path.join(BASE_DIR, "Data", "CarLabels_Unprocessed.csv")
 UNCONFIRMED_DIR = os.path.join(BASE_DIR, "Data", "Unconfirmed")
@@ -63,6 +193,10 @@ def index():
 def live():
     return render_template("timeline.html")
 
+@app.route("/sync")
+def sync():
+    return render_template("sync.html")
+
 @app.route("/api/push_frame", methods=["POST"])
 def api_push_frame():
     global latest_frame
@@ -93,9 +227,7 @@ def api_state():
         update_car_statuses()
         return jsonify(get_state())
 
-@app.route("/api/timeline", methods=["GET"])
-def api_timeline():
-    # Parse CSV for the timeline
+def get_timeline_feed():
     feed = []
     if os.path.exists(LOG_CSV):
         with open(LOG_CSV, "r", encoding="utf-8") as f:
@@ -105,10 +237,8 @@ def api_timeline():
                 parts = filename.split("__")
                 timestamp_str = parts[0] if len(parts) > 0 else "Unknown"
                 
-                try:
-                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d_%H-%M-%S-%f")
-                except:
-                    continue
+                try: dt = datetime.strptime(timestamp_str, "%Y-%m-%d_%H-%M-%S-%f")
+                except: continue
                 
                 display_time = dt.strftime("%b %d, %Y - %I:%M:%S %p")
                 conf_val = float(row.get("confidence", 0.0)) if row.get("confidence") else 0.0
@@ -125,12 +255,10 @@ def api_timeline():
                     "burst_images": [filename]
                 }
                 
-                # Deduplication logic (Strategy 1 & 3 combined)
                 is_burst = False
                 for past_event in reversed(feed):
                     time_diff = (dt - past_event["timestamp_obj"]).total_seconds()
-                    if time_diff > 60:
-                        break # Stop looking if the event is older than 60 seconds
+                    if time_diff > 60: break
                         
                     past_track = past_event.get("track_id", past_event["id"])
                     curr_track = event.get("track_id", event["id"])
@@ -139,7 +267,6 @@ def api_timeline():
                         is_burst = True
                         past_event["burst_images"].append(filename)
                         
-                        # Strategy 3: Max-Confidence Override overrides the label for the entire burst
                         if event["confidence"] > past_event["confidence"]:
                             past_event["filename"] = event["filename"]
                             past_event["confidence"] = event["confidence"]
@@ -152,11 +279,14 @@ def api_timeline():
                 if not is_burst:
                     feed.append(event)
                     
-    for e in feed:
-        del e["timestamp_obj"]
-        
-    # Reverse to have newest at top
     feed.reverse()
+    return feed
+
+@app.route("/api/timeline", methods=["GET"])
+def api_timeline():
+    feed = get_timeline_feed()
+    for e in feed:
+        if "timestamp_obj" in e: del e["timestamp_obj"]
     return jsonify(feed)
 
 @app.route("/api/labels", methods=["GET"])
@@ -206,6 +336,138 @@ def api_update_label():
 @app.route("/images/<filename>")
 def serve_image(filename):
     return send_from_directory(UNCONFIRMED_DIR, filename)
+    
+@app.route("/api/unconfirmed_image/<filename>")
+def serve_unconfirmed_image(filename):
+    return send_from_directory(UNCONFIRMED_DIR, filename)
+
+@app.route("/api/sync_status", methods=["GET"])
+def api_sync_status():
+    feed = get_timeline_feed()
+    tracks = []
+    checking = 0
+    checked = 0
+    for event in feed:
+        track_id = event.get('track_id') or event.get('id')
+        status = gemini_tasks.get(track_id, 'pending')
+        gem_label = gemini_results.get(track_id, '')
+        if status in ['checking', 'queued']: checking += 1
+        elif status == 'checked': checked += 1
+        
+        tracks.append({
+            "track_id": track_id,
+            "local_label": event['predicted_label'],
+            "images": event['burst_images'],
+            "status": status,
+            "gemini_label": gem_label,
+            "gemini_agrees": (gem_label.lower() == event['predicted_label'].lower()) if gem_label else False
+        })
+    return jsonify({
+        "unconfirmed_count": len(feed),
+        "checking_count": checking,
+        "checked_count": checked,
+        "tracks": tracks,
+        "logs": list(reversed(sync_logs)),
+        "batch_start_time": current_batch_start_time if current_batch_job_name else None
+    })
+
+    # Process handled by background queue
+
+@app.route("/api/run_gemini_batch", methods=["POST"])
+def api_run_gemini_batch():
+    api_key = os.getenv("GEMINI_API_KEY") or request.json.get("api_key")
+    if not api_key: return jsonify({"error": "No API key"}), 400
+    
+    feed = get_timeline_feed()
+    queued_count = 0
+    for event in feed:
+        t_id = event.get('track_id') or event.get('id')
+        if gemini_tasks.get(t_id) in ['checking', 'checked', 'queued']: continue
+        
+        gemini_tasks[t_id] = 'queued'
+        queued_count += 1
+        
+    if queued_count > 0:
+        save_gemini_state()
+        add_sync_log(f"Queued {queued_count} new tracks for the next Batch API submission.")
+    return jsonify({"status": "started"})
+
+@app.route("/api/cancel_gemini_batch", methods=["POST"])
+def api_cancel_gemini_batch():
+    global current_batch_job_name, current_batch_start_time
+    
+    current_batch_job_name = None
+    current_batch_start_time = None
+        
+    canceled_count = 0
+    for track_id, status in list(gemini_tasks.items()):
+        if status in ['queued', 'checking']:
+            del gemini_tasks[track_id]
+            canceled_count += 1
+            
+    save_gemini_state()
+    add_sync_log(f"Canceled. {canceled_count} tracks removed from queue.")
+    return jsonify({"status": "canceled"})
+
+@app.route("/api/update_gemini_label", methods=["POST"])
+def api_update_gemini_label():
+    data = request.json
+    t_id = data.get("track_id")
+    new_label = data.get("label")
+    if t_id and new_label is not None:
+        gemini_results[t_id] = new_label.strip()
+        gemini_tasks[t_id] = 'checked'
+        save_gemini_state()
+    return jsonify({"status": "success"})
+
+@app.route("/api/approve_sync", methods=["POST"])
+def api_approve_sync():
+    track_ids = request.json.get("track_ids", [])
+    if not track_ids: return jsonify({"status": "success"})
+    
+    feed = get_timeline_feed()
+    to_delete_filenames = set()
+    
+    GALLERY_DIR = os.path.join(BASE_DIR, "Data", "Gallery")
+    os.makedirs(GALLERY_DIR, exist_ok=True)
+    
+    for event in feed:
+        t_id = event.get('track_id') or event.get('id')
+        if t_id in track_ids:
+            label = gemini_results.get(t_id) or event['predicted_label']
+            if label.startswith("NEW - "): label = label[6:]
+            
+            # create folder named after label
+            car_dir = os.path.join(GALLERY_DIR, label.replace(" ", "_"))
+            os.makedirs(car_dir, exist_ok=True)
+            
+            for img in event['burst_images']:
+                to_delete_filenames.add(img)
+                src = os.path.join(UNCONFIRMED_DIR, img)
+                if os.path.exists(src):
+                    shutil.move(src, os.path.join(car_dir, img))
+                    
+    # Remove from CSV
+    if os.path.exists(LOG_CSV):
+        rows = []
+        with open(LOG_CSV, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                if row.get("filename") not in to_delete_filenames:
+                    rows.append(row)
+        with open(LOG_CSV, "w", newline='', encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+            
+    for tid in track_ids:
+        if tid in gemini_tasks: del gemini_tasks[tid]
+        if tid in gemini_results: del gemini_results[tid]
+        
+    save_gemini_state()
+    add_sync_log(f"Approved and synced {len(track_ids)} tracks to the Gallery.")
+    return jsonify({"status": "success"})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
