@@ -455,8 +455,8 @@ def sync_tracks(track_ids, feed):
     if not track_ids: return
     
     to_delete_filenames = set()
-    GALLERY_DIR = os.path.join(BASE_DIR, "Data", "Gallery")
-    os.makedirs(GALLERY_DIR, exist_ok=True)
+    UNSYNCED_DIR = os.path.join(BASE_DIR, "Data", "unsynced")
+    os.makedirs(UNSYNCED_DIR, exist_ok=True)
     
     for event in feed:
         t_id = event.get('track_id') or event.get('id')
@@ -464,7 +464,7 @@ def sync_tracks(track_ids, feed):
             label = gemini_results.get(t_id) or event['predicted_label']
             if label.startswith("NEW - "): label = label[6:]
             
-            car_dir = os.path.join(GALLERY_DIR, label.replace(" ", "_"))
+            car_dir = os.path.join(UNSYNCED_DIR, label.replace(" ", "_"))
             os.makedirs(car_dir, exist_ok=True)
             
             for img in event['burst_images']:
@@ -491,7 +491,7 @@ def sync_tracks(track_ids, feed):
         if tid in gemini_results: del gemini_results[tid]
         
     save_gemini_state()
-    add_sync_log(f"Auto-Synced {len(track_ids)} verified tracks to the Gallery.")
+    add_sync_log(f"Auto-Synced {len(track_ids)} verified tracks to the 'unsynced' folder.")
 
 @app.route("/api/approve_sync", methods=["POST"])
 def api_approve_sync():
