@@ -245,7 +245,8 @@ def get_timeline_feed():
     if os.path.exists(LOG_CSV):
         with open(LOG_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            for row in reader:
+            rows = list(reader)
+            for row in reversed(rows):
                 filename = row.get("filename", "")
                 parts = filename.split("__")
                 timestamp_str = parts[0] if len(parts) > 0 else "Unknown"
@@ -294,7 +295,6 @@ def get_timeline_feed():
                 if not is_burst:
                     feed.append(event)
                     
-    feed.reverse()
     return feed
 
 @app.route("/api/timeline", methods=["GET"])
@@ -348,17 +348,45 @@ def api_update_label():
             
     return jsonify({"status": "success"})
 
+def find_image_path(filename):
+    p = os.path.join(UNCONFIRMED_DIR, filename)
+    if os.path.exists(p): return UNCONFIRMED_DIR
+    
+    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery")]:
+        if os.path.exists(base):
+            for label_dir in os.listdir(base):
+                d = os.path.join(base, label_dir)
+                if os.path.isdir(d):
+                    p = os.path.join(d, filename)
+                    if os.path.exists(p):
+                        return d
+    return None
+
 @app.route("/images/<filename>")
 def serve_image(filename):
-    return send_from_directory(UNCONFIRMED_DIR, filename)
+    d = find_image_path(filename)
+    if d: return send_from_directory(d, filename)
+    return "Not found", 404
     
 @app.route("/api/unconfirmed_image/<filename>")
 def serve_unconfirmed_image(filename):
-    return send_from_directory(UNCONFIRMED_DIR, filename)
+    d = find_image_path(filename)
+    if d: return send_from_directory(d, filename)
+    return "Not found", 404
+
+def get_unsynced_feed():
+    feed = get_timeline_feed()
+    unsynced = []
+    for e in feed:
+        if e['burst_images']:
+            first_img = e['burst_images'][0]
+            if os.path.exists(os.path.join(UNCONFIRMED_DIR, first_img)):
+                unsynced.append(e)
+    return unsynced
 
 @app.route("/api/sync_status", methods=["GET"])
 def api_sync_status():
-    feed = get_timeline_feed()
+    feed = get_unsynced_feed()
     tracks = []
     checking = 0
     checked = 0
@@ -378,11 +406,15 @@ def api_sync_status():
             "gemini_agrees": (gem_label.lower() == event['predicted_label'].lower()) if gem_label else False
         })
         
-    total_unsynced_images = sum(len(e['burst_images']) for e in feed)
+    UNSYNCED_DIR = os.path.join(BASE_DIR, "Data", "unsynced")
+    unsynced_image_count = 0
+    if os.path.exists(UNSYNCED_DIR):
+        for root, dirs, files in os.walk(UNSYNCED_DIR):
+            unsynced_image_count += len([f for f in files if f.endswith(".jpg") or f.endswith(".png")])
 
     return jsonify({
         "unconfirmed_count": len(feed),
-        "total_unsynced_images": total_unsynced_images,
+        "unsynced_image_count": unsynced_image_count,
         "checking_count": checking,
         "checked_count": checked,
         "tracks": tracks,
@@ -397,7 +429,7 @@ def api_run_gemini_batch():
     api_key = os.getenv("GEMINI_API_KEY") or request.json.get("api_key")
     if not api_key: return jsonify({"error": "No API key"}), 400
     
-    feed = get_timeline_feed()
+    feed = get_unsynced_feed()
     
     queued_count = 0
     auto_checked = 0
@@ -473,19 +505,6 @@ def sync_tracks(track_ids, feed):
                 if os.path.exists(src):
                     shutil.move(src, os.path.join(car_dir, img))
                     
-    if os.path.exists(LOG_CSV):
-        rows = []
-        with open(LOG_CSV, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            for row in reader:
-                if row.get("filename") not in to_delete_filenames:
-                    rows.append(row)
-        with open(LOG_CSV, "w", newline='', encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-            
     for tid in track_ids:
         if tid in gemini_tasks: del gemini_tasks[tid]
         if tid in gemini_results: del gemini_results[tid]

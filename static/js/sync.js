@@ -8,7 +8,7 @@ async function fetchSyncStatus() {
         const data = await response.json();
         
         document.getElementById('metric-unconfirmed').textContent = data.unconfirmed_count;
-        document.getElementById('metric-total-images').textContent = data.total_unsynced_images;
+        document.getElementById('metric-unsynced-images').textContent = data.unsynced_image_count;
         document.getElementById('metric-checking').textContent = data.checking_count;
         document.getElementById('metric-checked').textContent = data.checked_count;
         
