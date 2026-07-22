@@ -23,13 +23,13 @@ function Start-System {
     
     # We use -NoExit so that if a script crashes, the window stays open for you to read the error!
     Write-Host "Starting YOLO Tracker..."
-    Start-Process powershell -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python YOLO_Identification.py`""
+    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python YOLO_Identification.py`""
 
     Write-Host "Starting ReID Inference..."
-    Start-Process powershell -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder --processed_folder Data/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
+    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder --processed_folder Data/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
 
     Write-Host "Starting Flask Web App..."
-    Start-Process powershell -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python app.py`""
+    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python app.py`""
 
     Write-Host "All 3 components are now running in their own windows!" -ForegroundColor Green
 }

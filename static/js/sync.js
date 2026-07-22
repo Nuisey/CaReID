@@ -8,18 +8,19 @@ async function fetchSyncStatus() {
         const data = await response.json();
         
         document.getElementById('metric-unconfirmed').textContent = data.unconfirmed_count;
+        document.getElementById('metric-total-images').textContent = data.total_unsynced_images;
         document.getElementById('metric-checking').textContent = data.checking_count;
         document.getElementById('metric-checked').textContent = data.checked_count;
         
         const runBtn = document.getElementById('btn-run-gemini');
         if (data.checking_count > 0) {
             runBtn.disabled = true;
-            runBtn.textContent = "Batch Check in Progress...";
+            runBtn.textContent = "Checking...";
             runBtn.style.opacity = '0.5';
             runBtn.style.cursor = 'not-allowed';
         } else {
             runBtn.disabled = false;
-            runBtn.textContent = "Run Gemini Batch Check";
+            runBtn.textContent = "Gemini Check";
             runBtn.style.opacity = '1';
             runBtn.style.cursor = 'pointer';
         }
@@ -46,9 +47,12 @@ function renderGrid(tracks) {
     const grid = document.getElementById('sync-grid');
     grid.innerHTML = '';
     
+    // Only show tracks where Gemini has checked it, and it DISAGREES with YOLO's label
+    const conflictingTracks = tracks.filter(t => t.status === 'checked' && !t.gemini_agrees);
+    
     // Group tracks by their predicted Gemini label, fallback to local label
     const groupedTracks = {};
-    tracks.forEach(track => {
+    conflictingTracks.forEach(track => {
         const groupKey = track.gemini_label || track.local_label;
         if (!groupedTracks[groupKey]) groupedTracks[groupKey] = [];
         groupedTracks[groupKey].push(track);
@@ -79,7 +83,6 @@ function renderGrid(tracks) {
             }
             
             card.className = `track-card ${borderClass}`;
-            const isChecked = selectedTracks.has(track.track_id) ? 'checked' : '';
             
             let carouselHtml = '<div class="carousel">';
             track.images.forEach(img => {
@@ -95,12 +98,10 @@ function renderGrid(tracks) {
                         <strong style="color: #bbb;">Local:</strong> ${track.local_label} <br>
                         <strong style="color: #bbb;">Gemini:</strong> 
                         <input type="text" value="${track.gemini_label || ''}" 
-                               placeholder="${(track.status === 'checking' || track.status === 'queued') ? 'Pending...' : 'Enter label'}"
+                               placeholder="Enter label"
                                onchange="updateGeminiLabel('${track.track_id}', this.value)"
                                style="background: #222; color: #fff; border: 1px solid #444; padding: 3px 5px; border-radius: 4px; width: 150px; font-size: 12px; margin-top: 4px; display: block;">
                     </div>
-                    <input type="checkbox" style="width: 20px; height: 20px; cursor: pointer;" 
-                           onchange="toggleSelection('${track.track_id}', this.checked)" ${isChecked}>
                 </div>
             `;
             grid.appendChild(card);
@@ -127,15 +128,6 @@ window.updateGeminiLabel = async function(trackId, newLabel) {
     });
     fetchSyncStatus();
 }
-
-document.getElementById('btn-select-agreeing').addEventListener('click', async () => {
-    const response = await fetch('/api/sync_status');
-    const data = await response.json();
-    data.tracks.forEach(t => {
-        if (t.gemini_agrees) selectedTracks.add(t.track_id);
-    });
-    fetchSyncStatus(); // Force re-render to show checkboxes
-});
 
 document.getElementById('btn-run-gemini').addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -169,27 +161,6 @@ document.getElementById('btn-cancel-gemini').addEventListener('click', async () 
     if (!confirmed) return;
     
     await fetch('/api/cancel_gemini_batch', { method: 'POST' });
-    fetchSyncStatus();
-});
-
-document.getElementById('btn-approve-sync').addEventListener('click', async () => {
-    if (selectedTracks.size === 0) return alert("Please select tracks to sync first.");
-    
-    const confirmed = confirm(`Are you sure you want to approve and move ${selectedTracks.size} tracks to the Gallery?`);
-    if (!confirmed) return;
-
-    isPolling = false; // Pause polling during sync to prevent race conditions
-    document.getElementById('btn-approve-sync').textContent = "Syncing...";
-    
-    await fetch('/api/approve_sync', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ track_ids: Array.from(selectedTracks) })
-    });
-    
-    selectedTracks.clear();
-    document.getElementById('btn-approve-sync').textContent = "Approve & Sync Selected";
-    isPolling = true;
     fetchSyncStatus();
 });
 

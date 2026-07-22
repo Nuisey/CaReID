@@ -98,6 +98,10 @@
             <span>Unconfirmed Tracks</span>
         </div>
         <div class="metric">
+            <h2 id="metric-total-images" style="color: #17a2b8;">0</h2>
+            <span>Total Un-synced Images</span>
+        </div>
+        <div class="metric">
             <h2 id="metric-checking" style="color: #ffc107;">0</h2>
             <span>Gemini Checking</span>
         </div>
@@ -107,15 +111,13 @@
         </div>
     </div>
 
-    <div style="margin: 0 20px; padding: 15px; background: #0a0a0a; border-radius: 8px; height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 14px; color: #0f0; box-shadow: inset 0 0 10px black; border: 1px solid #333;" id="sync-logs">
+    <div style="margin: 0 20px; padding: 15px; background: #0a0a0a; border-radius: 8px; height: 100px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 14px; color: #0f0; box-shadow: inset 0 0 10px black; border: 1px solid #333;" id="sync-logs">
         <div style="color: #888;">[System] Sync dashboard initialized. Waiting for batch checks...</div>
     </div>
 
     <div class="controls" style="margin-top: 20px;">
-        <button class="btn" id="btn-run-gemini">Run Gemini Batch Check</button>
-        <button class="btn" style="background-color: #dc3545;" id="btn-cancel-gemini">Cancel Batch Check</button>
-        <button class="btn btn-success" id="btn-select-agreeing">Select All Agreeing</button>
-        <button class="btn btn-success" id="btn-approve-sync">Approve & Sync Selected</button>
+        <button class="btn" id="btn-run-gemini">Gemini Check</button>
+        <button class="btn" style="background-color: #dc3545;" id="btn-cancel-gemini">Cancel</button>
     </div>
     <div id="batch-time-display" style="text-align: left; margin: 5px 20px 0 20px; font-size: 13px; color: #888; font-weight: bold; min-height: 18px;"></div>
 
