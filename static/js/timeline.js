@@ -100,7 +100,7 @@ async function loadFeed() {
                 const logContainer = document.getElementById('system-logs');
                 const logDiv = document.createElement('div');
                 logDiv.style.marginBottom = '5px';
-                logDiv.innerHTML = `<span style="color: #aaa;">[${item.time}]</span> <span style="color: #0ff;">[Camera 0]</span> Detected <b>${item.predicted_label}</b> (ID: ${item.id}) - Direction: <span style="color: #ff0;">${item.direction.toUpperCase()}</span> - Conf: ${parseFloat(item.confidence).toFixed(2)}`;
+                logDiv.innerHTML = `<span style="color: #aaa;">[${item.time}]</span> <span style="color: #0ff;">[Camera 0]</span> Detected <b>${item.predicted_label}</b> - Direction: <span style="color: #ff0;">${item.direction.toUpperCase()}</span> - Conf: ${parseFloat(item.confidence).toFixed(2)}`;
                 logContainer.appendChild(logDiv);
                 logContainer.scrollTop = logContainer.scrollHeight;
             }
@@ -121,7 +121,7 @@ async function loadFeed() {
         const isChecked = persistedSelectedFilenames.has(item.filename) ? 'checked' : '';
         
         const burstStr = encodeURIComponent(JSON.stringify(item.burst_images));
-        const labelStr = `${item.predicted_label} (ID: ${item.id})`;
+        const labelStr = `${item.predicted_label}`;
         
         div.innerHTML = `
             <div style="display: flex; align-items: center; margin-right: 15px;">
@@ -129,7 +129,7 @@ async function loadFeed() {
             </div>
             <img src="/images/${item.filename}" alt="Car crop" style="cursor: pointer;" onclick="openInspectModal('${burstStr}', '${labelStr}')" title="Click to view all ${item.burst_images.length} images">
             <div class="timeline-details">
-                <h3 style="margin-top: 0;">${item.predicted_label} (ID: ${item.id})</h3>
+                <h3 style="margin-top: 0;">${item.predicted_label}</h3>
                 <p>Time: ${item.time}</p>
                 <p>Confidence: ${parseFloat(item.confidence).toFixed(2)}</p>
                 <p style="font-size: 12px; color: #aaa;">Burst size: ${item.burst_images.length} image(s)</p>

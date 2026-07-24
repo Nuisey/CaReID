@@ -297,6 +297,52 @@ def get_timeline_feed():
                     
     return feed
 
+@app.route("/api/reference_image/<path:label>/<direction>/<int:index>")
+def api_reference_image(label, direction, index):
+    label_folder = label.replace(" ", "_")
+    matches = []
+    
+    # 1. Search unsynced folder directly
+    unsynced_path = os.path.join(BASE_DIR, "Data", "unsynced", label_folder)
+    if os.path.exists(unsynced_path):
+        for f in os.listdir(unsynced_path):
+            if f.endswith((".jpg", ".png")):
+                matches.append((unsynced_path, f))
+                
+    # 2. Search Gallery via CSV mappings
+    gallery_dir = os.path.join(BASE_DIR, "Data", "Gallery", "LabeledCarDataPhotos")
+    if os.path.exists(gallery_dir):
+        import csv
+        label_id = None
+        label_map_path = os.path.join(BASE_DIR, "Data", "label_map.csv")
+        if os.path.exists(label_map_path):
+            with open(label_map_path, 'r', encoding='utf-8') as f:
+                for row in csv.reader(f):
+                    if len(row) >= 2 and row[1].lower() == label.lower():
+                        label_id = row[0]
+                        break
+        
+        if label_id is not None:
+            gallery_csv_path = os.path.join(BASE_DIR, "Data", "Gallery", "Gallery.csv")
+            if os.path.exists(gallery_csv_path):
+                with open(gallery_csv_path, 'r', encoding='utf-8') as f:
+                    for row in csv.DictReader(f):
+                        if row.get('id') == label_id:
+                            fname = row.get('path')
+                            if fname and os.path.exists(os.path.join(gallery_dir, fname)):
+                                matches.append((gallery_dir, fname))
+
+    # Filter by direction first
+    dir_matches = [m for m in matches if f"__{direction}__" in m[1] or f"__{direction.capitalize()}__" in m[1]]
+    if len(dir_matches) > index:
+        return send_from_directory(dir_matches[index][0], dir_matches[index][1])
+        
+    # Fallback to any direction if not enough
+    if len(matches) > index:
+        return send_from_directory(matches[index][0], matches[index][1])
+        
+    return "Not Found", 404
+
 @app.route("/api/timeline", methods=["GET"])
 def api_timeline():
     feed = get_timeline_feed()
@@ -411,10 +457,17 @@ def api_sync_status():
     if os.path.exists(UNSYNCED_DIR):
         for root, dirs, files in os.walk(UNSYNCED_DIR):
             unsynced_image_count += len([f for f in files if f.endswith(".jpg") or f.endswith(".png")])
+            
+    GALLERY_DIR = os.path.join(BASE_DIR, "Data", "Gallery")
+    gallery_image_count = 0
+    if os.path.exists(GALLERY_DIR):
+        for root, dirs, files in os.walk(GALLERY_DIR):
+            gallery_image_count += len([f for f in files if f.endswith(".jpg") or f.endswith(".png")])
 
     return jsonify({
         "unconfirmed_count": len(feed),
         "unsynced_image_count": unsynced_image_count,
+        "gallery_image_count": gallery_image_count,
         "checking_count": checking,
         "checked_count": checked,
         "tracks": tracks,

@@ -122,10 +122,11 @@ class NewImageHandler(FileSystemEventHandler):
         natural_label = self.label_mapping.get(str(predicted_id), "Unknown")
         print(f"Car: {natural_label} | Dir: {direction} | Track: {track_id} | Conf: {confidence:.2f}")
 
-        self.log_to_csv(filename, direction, natural_label, predicted_id, confidence, track_id)
+        new_filename = f"{parts[0]}__{direction}__{track_id}__{natural_label.replace(' ', '_')}__{confidence:.4f}.jpg"
+        self.log_to_csv(new_filename, direction, natural_label, predicted_id, confidence, track_id)
 
         try:
-            dest_path = os.path.join(self.processed_folder_path, filename)
+            dest_path = os.path.join(self.processed_folder_path, new_filename)
             shutil.move(image_path, dest_path)
         except Exception as e:
             if image_path in self.processed_files:

@@ -22,7 +22,7 @@
         .metric h2 { margin: 0; color: #007bff; font-size: 2em; }
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
             gap: 20px;
             padding: 20px;
         }
@@ -46,7 +46,7 @@
             padding-bottom: 10px;
         }
         .carousel img {
-            height: 120px;
+            height: 160px;
             border-radius: 4px;
             object-fit: cover;
         }
@@ -94,20 +94,24 @@
 
     <div class="metrics-bar">
         <div class="metric">
-            <h2 id="metric-unconfirmed">0</h2>
-            <span>Unconfirmed Tracks</span>
+            <h2 id="metric-gallery-images" style="color: #6f42c1;">0</h2>
+            <span>Gallery Images</span>
         </div>
         <div class="metric">
             <h2 id="metric-unsynced-images" style="color: #17a2b8;">0</h2>
             <span>Un-synced Images</span>
         </div>
         <div class="metric">
+            <h2 id="metric-unconfirmed" style="color: #007bff;">0</h2>
+            <span>Unconfirmed Tracks</span>
+        </div>
+        <div class="metric">
             <h2 id="metric-checking" style="color: #ffc107;">0</h2>
-            <span>Gemini Checking</span>
+            <span>Gemini Queue</span>
         </div>
         <div class="metric">
             <h2 id="metric-checked" style="color: #28a745;">0</h2>
-            <span>Gemini Checked</span>
+            <span>Gemini Checks</span>
         </div>
     </div>
 
@@ -120,6 +124,11 @@
         <button class="btn" style="background-color: #dc3545;" id="btn-cancel-gemini">Cancel</button>
     </div>
     <div id="batch-time-display" style="text-align: left; margin: 5px 20px 0 20px; font-size: 13px; color: #888; font-weight: bold; min-height: 18px;"></div>
+
+    <div style="margin: 30px 20px 10px 20px; border-bottom: 2px solid #444; padding-bottom: 10px;">
+        <h2 style="color: #ffc107; margin: 0;">Conflicting Labels Review</h2>
+        <p style="color: #aaa; margin: 5px 0 0 0; font-size: 14px;">This section exclusively displays cars where Gemini disagreed with YOLO's initial guess. Correct the label below to instantly Auto-Sync them.</p>
+    </div>
 
     <div class="grid-container" id="sync-grid">
         <!-- Track cards will be populated here -->
