@@ -97,6 +97,9 @@ function renderGrid(tracks) {
             carouselHtml += '</div>';
             
             card.innerHTML = `
+                <div style="position: absolute; top: 12px; right: 12px; z-index: 10;">
+                    <button onclick="trashTrack('${track.track_id}')" style="padding: 6px 10px; background: #dc3545; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s;" title="Permanently Trash Track">🗑️ Trash</button>
+                </div>
                 ${badgeHtml}
                 <strong style="color: #fff; display: block; margin-bottom: 8px; font-size: 14px; text-align: center; letter-spacing: 1px;">THE UNIDENTIFIED CAR</strong>
                 ${carouselHtml}
@@ -124,10 +127,16 @@ function renderGrid(tracks) {
                 </div>
                 <div style="margin-top: 15px; text-align: center; background: #111; padding: 12px; border-radius: 6px;">
                     <strong style="color: #ffc107; font-size: 14px; display: block; margin-bottom: 5px;">MANUAL OVERRIDE</strong> 
-                    <input type="text" value="${track.gemini_label || ''}" 
-                           placeholder="Type completely different label..."
-                           onchange="updateGeminiLabel('${track.track_id}', this.value)"
-                           style="background: #000; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 4px; width: 90%; font-size: 16px; text-align: center;">
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <input type="text" list="carOptions" id="override-${track.track_id}" value="${track.gemini_label || ''}" 
+                               placeholder="Search or type label..."
+                               onfocus="isPolling = false;"
+                               onblur="setTimeout(() => { isPolling = true; }, 500);"
+                               oninput="updatePreview('${track.track_id}', this.value, '${track.direction}')"
+                               style="background: #000; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 4px; flex: 1; font-size: 16px;">
+                        <button onclick="submitOverride('${track.track_id}')" style="padding: 10px 15px; background: #ffc107; color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Save</button>
+                    </div>
+                    <div id="preview-${track.track_id}" style="display: flex; gap: 4px; justify-content: center; min-width: 0; margin-top: 10px;"></div>
                 </div>
             `;
             grid.appendChild(card);
@@ -147,12 +156,53 @@ window.toggleSelection = function(trackId, isChecked) {
 
 window.updateGeminiLabel = async function(trackId, newLabel) {
     if (!newLabel.trim()) return;
+    
+    // Set the label
     await fetch('/api/update_gemini_label', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ track_id: trackId, label: newLabel })
     });
+    
+    // Explicitly approve the sync so it pushes to the Label tab
+    await fetch('/api/approve_sync', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ track_ids: [trackId] })
+    });
+    
     fetchSyncStatus();
+}
+
+window.submitOverride = async function(trackId) {
+    const input = document.getElementById(`override-${trackId}`);
+    if (!input || !input.value.trim()) return;
+    isPolling = true; // resume polling instantly
+    await updateGeminiLabel(trackId, input.value);
+}
+
+window.trashTrack = async function(trackId) {
+    if (!confirm("Are you sure you want to permanently delete this track? It will be removed from your queue completely.")) return;
+    await fetch('/api/trash_track', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ track_id: trackId })
+    });
+    fetchSyncStatus();
+}
+
+window.updatePreview = function(trackId, label, direction) {
+    const previewDiv = document.getElementById(`preview-${trackId}`);
+    if (!label.trim()) {
+        previewDiv.innerHTML = '';
+        return;
+    }
+    const safeLabel = encodeURIComponent(label);
+    previewDiv.innerHTML = `
+        <img src="/api/reference_image/${safeLabel}/${direction}/0" style="flex: 1; min-width: 0; max-width: 32%; height: 80px; object-fit: contain; border-radius: 4px; background: #000;" onerror="this.outerHTML='<div style=\\'flex: 1; min-width: 0; max-width: 32%; height: 80px; display: flex; align-items: center; justify-content: center; background: #111; color: #555; font-size: 11px; border-radius: 4px; border: 1px dashed #333;\\'>NO REF</div>'">
+        <img src="/api/reference_image/${safeLabel}/${direction}/1" style="flex: 1; min-width: 0; max-width: 32%; height: 80px; object-fit: contain; border-radius: 4px; background: #000;" onerror="this.outerHTML=''">
+        <img src="/api/reference_image/${safeLabel}/${direction}/2" style="flex: 1; min-width: 0; max-width: 32%; height: 80px; object-fit: contain; border-radius: 4px; background: #000;" onerror="this.outerHTML=''">
+    `;
 }
 
 document.getElementById('btn-run-gemini').addEventListener('click', async (e) => {

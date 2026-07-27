@@ -90,6 +90,8 @@
         <button onclick="window.location.href='/'">Map</button>
         <button onclick="window.location.href='/live'">Live</button>
         <button class="active" onclick="window.location.href='/sync'">Sync</button>
+        <button onclick="window.location.href='/label'">Label</button>
+        <button onclick="window.location.href='/gallery'">Gallery</button>
     </div>
 
     <div class="metrics-bar">
@@ -133,5 +135,17 @@
     <div class="grid-container" id="sync-grid">
         <!-- Track cards will be populated here -->
     </div>
+
+    <datalist id="carOptions"></datalist>
+    <script>
+        fetch('/api/labels').then(r => r.json()).then(labels => {
+            const dl = document.getElementById('carOptions');
+            labels.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.label;
+                dl.appendChild(opt);
+            });
+        });
+    </script>
 </body>
 </html>

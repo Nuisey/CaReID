@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarID Label Review</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .metrics-bar {
+            display: flex;
+            gap: 20px;
+            background-color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+            justify-content: space-around;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric h2 { margin: 0; color: #007bff; font-size: 2em; }
+        
+        .group-container {
+            margin: 20px;
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .group-header h3 {
+            margin: 0;
+            color: #ffc107;
+        }
+        .btn-confirm {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .btn-confirm:hover { background-color: #218838; }
+        .btn-confirm:disabled { background-color: #555; cursor: not-allowed; }
+        
+        .masonry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .image-card {
+            position: relative;
+            cursor: pointer;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 4px solid #28a745; /* Default selected */
+            transition: all 0.2s ease;
+        }
+        .image-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .image-card.rejected {
+            border-color: #dc3545;
+            opacity: 0.5;
+        }
+        .image-card::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .image-card.rejected::after {
+            content: '✕';
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <button onclick="window.location.href='/'">Map</button>
+        <button onclick="window.location.href='/live'">Live</button>
+        <button onclick="window.location.href='/sync'">Sync</button>
+        <button class="active" onclick="window.location.href='/label'">Label</button>
+        <button onclick="window.location.href='/gallery'">Gallery</button>
+    </div>
+
+    <div class="metrics-bar">
+        <div class="metric">
+            <h2 id="metric-processed" style="color: #6f42c1;">0</h2>
+            <span>Total Images Processed</span>
+        </div>
+        <div class="metric">
+            <h2 id="metric-rejected" style="color: #dc3545;">0</h2>
+            <span>Total Rejected</span>
+        </div>
+        <div class="metric">
+            <h2 id="metric-accuracy" style="color: #28a745;">0%</h2>
+            <span>AI Accuracy Rate</span>
+        </div>
+    </div>
+
+    <div style="margin: 30px 20px 10px 20px; border-bottom: 2px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h2 style="color: #ffc107; margin: 0;">High-Speed Bulk Confirmation</h2>
+            <p style="color: #aaa; margin: 5px 0 0 0; font-size: 14px;">Skim the grid below. Click incorrect images to reject them, then click Confirm. <b>Rejected images will be deleted.</b></p>
+        </div>
+        <button class="btn-confirm" style="background-color: #6c757d;" onclick="undoCommit()" id="undoBtn">Undo Last Action</button>
+    </div>
+
+    <div id="groups-container">
+        <!-- Groups will be rendered here -->
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            loadMetrics();
+            loadGroups();
+        });
+
+        async function loadMetrics() {
+            try {
+                const res = await fetch('/api/sync_metrics');
+                const data = await res.json();
+                document.getElementById('metric-processed').innerText = data.total_processed.toLocaleString();
+                document.getElementById('metric-rejected').innerText = data.total_rejected.toLocaleString();
+                
+                let accuracy = 100;
+                if (data.total_processed > 0) {
+                    accuracy = ((data.total_processed - data.total_rejected) / data.total_processed * 100).toFixed(1);
+                }
+                document.getElementById('metric-accuracy').innerText = accuracy + '%';
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function loadGroups() {
+            try {
+                const res = await fetch('/api/unsynced_groups');
+                const groups = await res.json();
+                
+                const container = document.getElementById('groups-container');
+                container.innerHTML = '';
+                
+                if (Object.keys(groups).length === 0) {
+                    container.innerHTML = '<h3 style="text-align: center; color: #888; margin-top: 50px;">No images waiting for confirmation!</h3>';
+                    return;
+                }
+
+                for (const [label, images] of Object.entries(groups)) {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'group-container';
+                    groupDiv.id = `group-${label.replace(/[^a-zA-Z0-9]/g, '')}`;
+                    
+                    const header = document.createElement('div');
+                    header.className = 'group-header';
+                    
+                    const title = document.createElement('h3');
+                    title.innerText = label;
+                    
+                    const btnGroup = document.createElement('div');
+                    btnGroup.style.display = 'flex';
+                    btnGroup.style.gap = '10px';
+                    
+                    const btnTrash = document.createElement('button');
+                    btnTrash.className = 'btn-confirm';
+                    btnTrash.style.backgroundColor = '#dc3545';
+                    btnTrash.innerText = 'Trash Entire Group';
+                    btnTrash.onclick = () => trashGroup(label, images, groupDiv, btn, btnTrash);
+
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-confirm';
+                    btn.innerText = `Confirm ${images.length} Images`;
+                    btn.onclick = () => confirmGroup(label, images, groupDiv, btn, btnTrash);
+                    
+                    btnGroup.appendChild(btnTrash);
+                    btnGroup.appendChild(btn);
+                    
+                    header.appendChild(title);
+                    header.appendChild(btnGroup);
+                    groupDiv.appendChild(header);
+                    
+                    const grid = document.createElement('div');
+                    grid.className = 'masonry-grid';
+                    
+                    images.forEach(img => {
+                        const card = document.createElement('div');
+                        card.className = 'image-card';
+                        card.dataset.image = img;
+                        card.dataset.selected = 'true';
+                        
+                        const imgEl = document.createElement('img');
+                        // Use the existing serve_image endpoint for preview
+                        imgEl.src = `/images/${img}`;
+                        imgEl.loading = 'lazy';
+                        
+                        card.appendChild(imgEl);
+                        
+                        card.onclick = () => {
+                            if (card.dataset.selected === 'true') {
+                                card.dataset.selected = 'false';
+                                card.classList.add('rejected');
+                            } else {
+                                card.dataset.selected = 'true';
+                                card.classList.remove('rejected');
+                            }
+                            updateConfirmButton(groupDiv, btn);
+                        };
+                        
+                        grid.appendChild(card);
+                    });
+                    
+                    groupDiv.appendChild(grid);
+                    container.appendChild(groupDiv);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        function updateConfirmButton(groupDiv, btn) {
+            const selected = groupDiv.querySelectorAll('.image-card[data-selected="true"]').length;
+            btn.innerText = `Confirm ${selected} Images`;
+            if (selected === 0) {
+                btn.disabled = true;
+            } else {
+                btn.disabled = false;
+            }
+        }
+
+        async function undoCommit() {
+            const btn = document.getElementById('undoBtn');
+            btn.disabled = true;
+            btn.innerText = "Undoing...";
+            try {
+                const res = await fetch('/api/undo_commit', {method: 'POST'});
+                if (res.ok) {
+                    alert("Successfully undid the last confirmation!");
+                    loadMetrics();
+                    loadGroups();
+                } else {
+                    const data = await res.json();
+                    alert("Cannot undo: " + (data.message || "Unknown error"));
+                }
+            } catch(e) {
+                console.error(e);
+                alert("Error undoing.");
+            }
+            btn.disabled = false;
+            btn.innerText = "Undo Last Action";
+        }
+
+        async function confirmGroup(label, allImages, groupDiv, btn, btnTrash) {
+            btn.disabled = true;
+            if (btnTrash) btnTrash.disabled = true;
+            btn.innerText = "Confirming...";
+            
+            const selectedCards = groupDiv.querySelectorAll('.image-card[data-selected="true"]');
+            const rejectedCards = groupDiv.querySelectorAll('.image-card[data-selected="false"]');
+            
+            const selectedImages = Array.from(selectedCards).map(c => c.dataset.image);
+            const rejectedImages = Array.from(rejectedCards).map(c => c.dataset.image);
+            
+            try {
+                const res = await fetch('/api/commit_labels', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        commits: { [label]: selectedImages },
+                        deletions: { [label]: rejectedImages }
+                    })
+                });
+                
+                if (res.ok) {
+                    groupDiv.remove(); // Remove the group from UI
+                    loadMetrics(); // Update top stats
+                    
+                    const remainingGroups = document.querySelectorAll('.group-container').length;
+                    if (remainingGroups === 0) {
+                        document.getElementById('groups-container').innerHTML = '<h3 style="text-align: center; color: #888; margin-top: 50px;">All caught up! No images waiting for confirmation.</h3>';
+                    }
+                } else {
+                    alert("Failed to commit images");
+                    btn.disabled = false;
+                    if (btnTrash) btnTrash.disabled = false;
+                    updateConfirmButton(groupDiv, btn);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error committing images");
+                btn.disabled = false;
+                if (btnTrash) btnTrash.disabled = false;
+                updateConfirmButton(groupDiv, btn);
+            }
+        }
+
+        async function trashGroup(label, allImages, groupDiv, btnConfirm, btnTrash) {
+            if (!confirm(`Are you sure you want to delete all ${allImages.length} images for ${label}?`)) return;
+            
+            btnConfirm.disabled = true;
+            btnTrash.disabled = true;
+            btnTrash.innerText = "Trashing...";
+            
+            try {
+                const res = await fetch('/api/commit_labels', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        commits: {},
+                        deletions: { [label]: allImages }
+                    })
+                });
+                
+                if (res.ok) {
+                    groupDiv.remove();
+                    loadMetrics();
+                    const remainingGroups = document.querySelectorAll('.group-container').length;
+                    if (remainingGroups === 0) {
+                        document.getElementById('groups-container').innerHTML = '<h3 style="text-align: center; color: #888; margin-top: 50px;">All caught up! No images waiting for confirmation.</h3>';
+                    }
+                } else {
+                    alert("Failed to trash images");
+                    btnConfirm.disabled = false;
+                    btnTrash.disabled = false;
+                    btnTrash.innerText = "Trash Entire Group";
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error trashing images");
+                btnConfirm.disabled = false;
+                btnTrash.disabled = false;
+                btnTrash.innerText = "Trash Entire Group";
+            }
+        }
+    </script>
+</body>
+</html>
