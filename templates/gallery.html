@@ -91,11 +91,34 @@
             border: 2px solid #333;
             background: #000;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
         }
         .image-card:hover {
             transform: translateY(-2px);
             border-color: #555;
+        }
+        .image-card.selected {
+            border-color: #28a745;
+            box-shadow: 0 0 10px rgba(40,167,69,0.5);
+            transform: scale(0.96);
+        }
+        .image-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
         }
         .image-card img {
             width: 100%;
@@ -136,7 +159,7 @@
             <input type="text" id="labelSearch" class="search-box" placeholder="Search labels...">
             <div class="controls-row">
                 <span id="labelCount" style="color: #aaa; font-size: 12px;">Loading...</span>
-                <button class="clear-btn" onclick="clearSelection()">Clear All</button>
+                <button class="clear-btn" onclick="clearSelection()">Clear View</button>
             </div>
             <div id="labelsList"></div>
         </div>
@@ -144,12 +167,26 @@
             <div style="display: flex; height: 100%; align-items: center; justify-content: center; flex-direction: column; color: #666;">
                 <h2 style="margin: 0; font-size: 28px;">Gallery Comparison</h2>
                 <p style="margin-top: 10px; font-size: 16px;">Select labels from the sidebar to view and compare confirmed images.</p>
+                <p style="margin-top: 5px; font-size: 14px;">(You can click on any image to select it and change its label)</p>
             </div>
         </div>
     </div>
+    
+    <div id="actionBar" style="display: none; position: fixed; bottom: 0; left: 320px; right: 0; background: #222; padding: 15px 30px; border-top: 1px solid #444; align-items: center; justify-content: space-between; z-index: 100; box-shadow: 0 -4px 10px rgba(0,0,0,0.5);">
+        <div style="color: #fff; font-size: 16px; font-weight: bold;">
+            <span id="selectedCount">0</span> images selected
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="newLabelInput" list="allLabelsList" placeholder="New label..." style="padding: 10px; border-radius: 4px; border: 1px solid #555; background: #000; color: #fff; width: 250px;">
+            <button onclick="updateSelectedLabels()" id="btnUpdateLabels" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s;">Update Labels</button>
+            <button onclick="clearImageSelection()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+        </div>
+    </div>
+    <datalist id="allLabelsList"></datalist>
 
     <script>
         let galleryData = {};
+        let selectedImages = new Set();
         
         document.addEventListener("DOMContentLoaded", async () => {
             try {
@@ -176,9 +213,12 @@
         
         function renderSidebar() {
             const list = document.getElementById('labelsList');
+            const datalist = document.getElementById('allLabelsList');
             const labels = Object.keys(galleryData).sort();
             
             document.getElementById('labelCount').innerText = `${labels.length} total labels`;
+            list.innerHTML = '';
+            datalist.innerHTML = '';
             
             labels.forEach(label => {
                 const count = galleryData[label].length;
@@ -194,6 +234,10 @@
                 div.appendChild(cb);
                 div.appendChild(document.createTextNode(`${label} (${count})`));
                 list.appendChild(div);
+                
+                const option = document.createElement('option');
+                option.value = label;
+                datalist.appendChild(option);
             });
         }
         
@@ -232,6 +276,10 @@
                 images.forEach(img => {
                     const card = document.createElement('div');
                     card.className = 'image-card';
+                    if (selectedImages.has(img)) {
+                        card.classList.add('selected');
+                    }
+                    card.onclick = () => toggleImageSelection(img, card);
                     card.innerHTML = `<img src="/images/${img}" loading="lazy" alt="Car Image" title="${img}">`;
                     grid.appendChild(card);
                 });
@@ -239,6 +287,78 @@
                 groupDiv.appendChild(grid);
                 content.appendChild(groupDiv);
             });
+            updateActionBar();
+        }
+
+        function toggleImageSelection(img, cardElement) {
+            if (selectedImages.has(img)) {
+                selectedImages.delete(img);
+                cardElement.classList.remove('selected');
+            } else {
+                selectedImages.add(img);
+                cardElement.classList.add('selected');
+            }
+            updateActionBar();
+        }
+
+        function updateActionBar() {
+            const bar = document.getElementById('actionBar');
+            if (selectedImages.size > 0) {
+                bar.style.display = 'flex';
+                document.getElementById('selectedCount').innerText = selectedImages.size;
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        function clearImageSelection() {
+            selectedImages.clear();
+            document.querySelectorAll('.image-card.selected').forEach(card => card.classList.remove('selected'));
+            updateActionBar();
+        }
+
+        async function updateSelectedLabels() {
+            const newLabel = document.getElementById('newLabelInput').value.trim();
+            if (!newLabel) {
+                alert("Please enter or select a new label.");
+                return;
+            }
+            
+            const btn = document.getElementById('btnUpdateLabels');
+            btn.disabled = true;
+            btn.innerText = "Updating...";
+            
+            try {
+                const res = await fetch('/api/update_gallery_labels', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        images: Array.from(selectedImages),
+                        new_label: newLabel
+                    })
+                });
+                
+                if (res.ok) {
+                    selectedImages.clear();
+                    document.getElementById('newLabelInput').value = '';
+                    updateActionBar();
+                    
+                    // Reload data
+                    const newDataRes = await fetch('/api/gallery_data');
+                    galleryData = await newDataRes.json();
+                    
+                    // Re-render
+                    renderSidebar();
+                    renderGallery();
+                } else {
+                    alert("Failed to update labels.");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("An error occurred.");
+            }
+            btn.disabled = false;
+            btn.innerText = "Update Labels";
         }
     </script>
 </body>

@@ -448,6 +448,10 @@ def api_commit_labels():
                 shutil.move(src, dst)
                 undo_state["deleted"].append({"label": label, "image": img})
                 
+    undo_state_path = os.path.join(BASE_DIR, "Data", "last_commit_state.json")
+    with open(undo_state_path, 'w') as f:
+        json.dump(undo_state, f)
+        
     if new_rows:
         file_exists = os.path.exists(gallery_csv_path)
         with open(gallery_csv_path, 'a', encoding='utf-8', newline='') as f:
@@ -474,6 +478,30 @@ def api_commit_labels():
         json.dump(metrics, f)
         
     return jsonify({"status": "success", "confirmed": confirmed_count})
+
+@app.route("/api/reassign_unsynced", methods=["POST"])
+def api_reassign_unsynced():
+    data = request.json
+    old_label = data.get("old_label")
+    new_label = data.get("new_label")
+    images = data.get("images", [])
+    
+    if not old_label or not new_label or not images:
+        return jsonify({"status": "error", "message": "Missing parameters"}), 400
+        
+    old_dir = os.path.join(BASE_DIR, "Data", "unsynced", old_label.replace(" ", "_"))
+    new_dir = os.path.join(BASE_DIR, "Data", "unsynced", new_label.replace(" ", "_"))
+    os.makedirs(new_dir, exist_ok=True)
+    
+    moved_count = 0
+    for img in images:
+        src = os.path.join(old_dir, img)
+        dst = os.path.join(new_dir, img)
+        if os.path.exists(src):
+            shutil.move(src, dst)
+            moved_count += 1
+            
+    return jsonify({"status": "success", "moved_count": moved_count})
 
 @app.route("/api/undo_commit", methods=["POST"])
 def api_undo_commit():
@@ -624,6 +652,59 @@ def api_gallery_data():
                 
     return jsonify(gallery_data)
 
+@app.route("/api/update_gallery_labels", methods=["POST"])
+def api_update_gallery_labels():
+    data = request.json
+    images = data.get("images", [])
+    new_label_str = data.get("new_label", "").strip()
+    
+    if not images or not new_label_str:
+        return jsonify({"status": "error", "message": "Missing images or label"}), 400
+        
+    label_map_path = os.path.join(BASE_DIR, "Data", "label_map.csv")
+    label_to_id = {}
+    max_id = -1
+    
+    # Read existing labels
+    if os.path.exists(label_map_path):
+        with open(label_map_path, 'r', encoding='utf-8') as f:
+            for row in csv.reader(f):
+                if len(row) >= 2:
+                    label_to_id[row[1].lower()] = row[0]
+                    try:
+                        max_id = max(max_id, int(row[0]))
+                    except:
+                        pass
+                        
+    # Find or create new label ID
+    new_label_lower = new_label_str.lower()
+    if new_label_lower in label_to_id:
+        new_label_id = label_to_id[new_label_lower]
+    else:
+        new_label_id = str(max_id + 1)
+        with open(label_map_path, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow([new_label_id, new_label_str])
+            
+    # Update Gallery.csv
+    gallery_csv_path = os.path.join(BASE_DIR, "Data", "Gallery", "Gallery.csv")
+    updated_rows = []
+    
+    if os.path.exists(gallery_csv_path):
+        with open(gallery_csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("path") in images:
+                    row["id"] = new_label_id
+                updated_rows.append(row)
+                
+        with open(gallery_csv_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=["path", "id"])
+            writer.writeheader()
+            writer.writerows(updated_rows)
+            
+    return jsonify({"status": "success"})
+
 def find_image_path(filename):
     p = os.path.join(UNCONFIRMED_DIR, filename)
     if os.path.exists(p): return UNCONFIRMED_DIR
@@ -766,12 +847,26 @@ def api_update_gemini_label():
         save_gemini_state()
     return jsonify({"status": "success"})
 
+def save_sync_undo_state(state):
+    path = os.path.join(BASE_DIR, "Data", "last_sync_undo.json")
+    with open(path, "w") as f:
+        json.dump(state, f)
+
+def get_sync_undo_state():
+    path = os.path.join(BASE_DIR, "Data", "last_sync_undo.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return {}
+
 def sync_tracks(track_ids, feed):
     if not track_ids: return
     
     to_delete_filenames = set()
     UNSYNCED_DIR = os.path.join(BASE_DIR, "Data", "unsynced")
     os.makedirs(UNSYNCED_DIR, exist_ok=True)
+    
+    undo_tracks = []
     
     for event in feed:
         t_id = event.get('track_id') or event.get('id')
@@ -782,6 +877,15 @@ def sync_tracks(track_ids, feed):
             car_dir = os.path.join(UNSYNCED_DIR, label.replace(" ", "_"))
             os.makedirs(car_dir, exist_ok=True)
             
+            undo_track = {
+                "track_id": t_id,
+                "label": label,
+                "images": list(event['burst_images']),
+                "all_track_ids": list(event.get('all_track_ids', [t_id])),
+                "gemini_results": {},
+                "gemini_tasks": {}
+            }
+            
             for img in event['burst_images']:
                 to_delete_filenames.add(img)
                 src = os.path.join(UNCONFIRMED_DIR, img)
@@ -789,9 +893,16 @@ def sync_tracks(track_ids, feed):
                     shutil.move(src, os.path.join(car_dir, img))
                     
             for sub_id in event.get('all_track_ids', [t_id]):
-                if sub_id in gemini_tasks: del gemini_tasks[sub_id]
-                if sub_id in gemini_results: del gemini_results[sub_id]
-        
+                if sub_id in gemini_results:
+                    undo_track["gemini_results"][sub_id] = gemini_results[sub_id]
+                    del gemini_results[sub_id]
+                if sub_id in gemini_tasks:
+                    undo_track["gemini_tasks"][sub_id] = gemini_tasks[sub_id]
+                    del gemini_tasks[sub_id]
+                    
+            undo_tracks.append(undo_track)
+            
+    save_sync_undo_state({"type": "approve", "tracks": undo_tracks})
     save_gemini_state()
     add_sync_log(f"Auto-Synced {len(track_ids)} verified tracks to the 'unsynced' folder.")
 
@@ -810,21 +921,85 @@ def api_trash_track():
     
     feed = get_timeline_feed()
     all_ids_to_clean = [track_id]
+    
+    TRASH_UNCONFIRMED_DIR = os.path.join(BASE_DIR, "Data", "Trash", "Unconfirmed")
+    os.makedirs(TRASH_UNCONFIRMED_DIR, exist_ok=True)
+    
+    undo_track = {
+        "track_id": track_id,
+        "images": [],
+        "all_track_ids": [],
+        "gemini_results": {},
+        "gemini_tasks": {}
+    }
+    
     for event in feed:
         t_id = event.get('track_id') or event.get('id')
         if t_id == track_id:
             all_ids_to_clean = event.get('all_track_ids', [track_id])
+            undo_track["all_track_ids"] = list(all_ids_to_clean)
+            undo_track["images"] = list(event.get('burst_images', []))
+            
             for img in event.get('burst_images', []):
                 src = os.path.join(UNCONFIRMED_DIR, img)
+                dst = os.path.join(TRASH_UNCONFIRMED_DIR, img)
                 if os.path.exists(src):
-                    os.remove(src)
+                    shutil.move(src, dst)
             break
             
     for sub_id in all_ids_to_clean:
-        if sub_id in gemini_tasks: del gemini_tasks[sub_id]
-        if sub_id in gemini_results: del gemini_results[sub_id]
+        if sub_id in gemini_tasks:
+            undo_track["gemini_tasks"][sub_id] = gemini_tasks[sub_id]
+            del gemini_tasks[sub_id]
+        if sub_id in gemini_results:
+            undo_track["gemini_results"][sub_id] = gemini_results[sub_id]
+            del gemini_results[sub_id]
+            
+    save_sync_undo_state({"type": "trash", "tracks": [undo_track]})
     save_gemini_state()
     return jsonify({"status": "success"})
+
+@app.route("/api/undo_sync", methods=["POST"])
+def api_undo_sync():
+    state = get_sync_undo_state()
+    if not state or not state.get("tracks"):
+        return jsonify({"status": "error", "message": "Nothing to undo"}), 400
+        
+    UNSYNCED_DIR = os.path.join(BASE_DIR, "Data", "unsynced")
+    TRASH_UNCONFIRMED_DIR = os.path.join(BASE_DIR, "Data", "Trash", "Unconfirmed")
+    
+    restored_count = 0
+    for track in state["tracks"]:
+        images = track.get("images", [])
+        
+        # Restore images
+        if state["type"] == "approve":
+            label = track.get("label", "")
+            car_dir = os.path.join(UNSYNCED_DIR, label.replace(" ", "_"))
+            for img in images:
+                src = os.path.join(car_dir, img)
+                dst = os.path.join(UNCONFIRMED_DIR, img)
+                if os.path.exists(src):
+                    shutil.move(src, dst)
+        elif state["type"] == "trash":
+            for img in images:
+                src = os.path.join(TRASH_UNCONFIRMED_DIR, img)
+                dst = os.path.join(UNCONFIRMED_DIR, img)
+                if os.path.exists(src):
+                    shutil.move(src, dst)
+                    
+        # Restore Gemini state
+        for sub_id, res in track.get("gemini_results", {}).items():
+            gemini_results[sub_id] = res
+        for sub_id, status in track.get("gemini_tasks", {}).items():
+            gemini_tasks[sub_id] = status
+            
+        restored_count += 1
+        
+    save_gemini_state()
+    save_sync_undo_state({}) # Clear undo state
+    
+    return jsonify({"status": "success", "restored_count": restored_count})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

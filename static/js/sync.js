@@ -243,3 +243,18 @@ document.getElementById('btn-cancel-gemini').addEventListener('click', async () 
 // Poll every 5 seconds
 setInterval(fetchSyncStatus, 5000);
 fetchSyncStatus();
+
+document.getElementById('btn-undo-sync').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/undo_sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            fetchSyncStatus();
+        } else {
+            alert(data.message || "Nothing to undo.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to undo.");
+    }
+});

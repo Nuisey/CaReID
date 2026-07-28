@@ -130,11 +130,22 @@
     <div id="groups-container">
         <!-- Groups will be rendered here -->
     </div>
+    
+    <datalist id="carOptions"></datalist>
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             loadMetrics();
             loadGroups();
+            
+            fetch('/api/labels').then(r => r.json()).then(labels => {
+                const dl = document.getElementById('carOptions');
+                labels.forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.label;
+                    dl.appendChild(opt);
+                });
+            });
         });
 
         async function loadMetrics() {
@@ -182,6 +193,22 @@
                     btnGroup.style.display = 'flex';
                     btnGroup.style.gap = '10px';
                     
+                    const newLabelInput = document.createElement('input');
+                    newLabelInput.type = 'text';
+                    newLabelInput.placeholder = 'Reassign label...';
+                    newLabelInput.setAttribute('list', 'carOptions');
+                    newLabelInput.style.padding = '8px';
+                    newLabelInput.style.borderRadius = '4px';
+                    newLabelInput.style.border = '1px solid #555';
+                    newLabelInput.style.background = '#111';
+                    newLabelInput.style.color = '#fff';
+                    
+                    const btnMove = document.createElement('button');
+                    btnMove.className = 'btn-confirm';
+                    btnMove.style.backgroundColor = '#17a2b8';
+                    btnMove.innerText = 'Move Selected';
+                    btnMove.onclick = () => moveSelected(label, groupDiv, newLabelInput, btnMove);
+                    
                     const btnTrash = document.createElement('button');
                     btnTrash.className = 'btn-confirm';
                     btnTrash.style.backgroundColor = '#dc3545';
@@ -193,6 +220,8 @@
                     btn.innerText = `Confirm ${images.length} Images`;
                     btn.onclick = () => confirmGroup(label, images, groupDiv, btn, btnTrash);
                     
+                    btnGroup.appendChild(newLabelInput);
+                    btnGroup.appendChild(btnMove);
                     btnGroup.appendChild(btnTrash);
                     btnGroup.appendChild(btn);
                     
@@ -235,6 +264,52 @@
                 }
             } catch (e) {
                 console.error(e);
+            }
+        }
+        
+        async function moveSelected(oldLabel, groupDiv, inputEl, btnMove) {
+            const newLabel = inputEl.value.trim();
+            if (!newLabel) {
+                alert("Please enter a new label.");
+                return;
+            }
+            
+            const selectedCards = groupDiv.querySelectorAll('.image-card[data-selected="true"]');
+            const selectedImages = Array.from(selectedCards).map(c => c.dataset.image);
+            
+            if (selectedImages.length === 0) {
+                alert("No images selected to move.");
+                return;
+            }
+            
+            btnMove.disabled = true;
+            btnMove.innerText = "Moving...";
+            
+            try {
+                const res = await fetch('/api/reassign_unsynced', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        old_label: oldLabel,
+                        new_label: newLabel,
+                        images: selectedImages
+                    })
+                });
+                
+                if (res.ok) {
+                    // Just reload the page to refresh all groups
+                    loadGroups();
+                } else {
+                    const data = await res.json();
+                    alert("Failed to move images: " + data.message);
+                    btnMove.disabled = false;
+                    btnMove.innerText = "Move Selected";
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error moving images");
+                btnMove.disabled = false;
+                btnMove.innerText = "Move Selected";
             }
         }
         
