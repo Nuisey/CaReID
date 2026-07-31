@@ -1,0 +1,8 @@
+nclasses: 751
+droprate: 0.5
+stride: 2
+linear_num: 512
+model: dinov3_mtl
+make_classes: 31
+model_classes: 70
+color_classes: 11

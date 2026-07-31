@@ -7,12 +7,17 @@ import os
 class ImageDataset(Dataset):
     """A labeled image dataset whose annotation is provided as a DataFrame."""
 
-    def __init__(self, img_root, df, target_label, classes="infer", transform=None, target_transform=None):
+    def __init__(self, img_root, df, target_label, classes="infer", transform=None, target_transform=None, return_mtl=False, make_col="make", model_col="model", color_col="color"):
         self.img_root = img_root
         self.df = df
         self.target_label = target_label
         self.transform = transform
         self.target_transform = target_transform
+        self.return_mtl = return_mtl
+        self.make_col = make_col
+        self.model_col = model_col
+        self.color_col = color_col
+        
         if classes == "infer":
             self.classes = list(set(df[target_label].values))
         else:
@@ -38,10 +43,18 @@ class ImageDataset(Dataset):
         pth = os.path.join(self.img_root, row["path"])
         image = Image.open(pth).convert("RGB")
         label = self.class_idx[row[self.target_label]]
+        
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
             label = self.target_transform(label)
+            
+        if self.return_mtl:
+            make = row[self.make_col]
+            model = row[self.model_col]
+            color = row[self.color_col]
+            return image, label, make, model, color
+            
         return image, label
 
 

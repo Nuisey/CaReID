@@ -348,6 +348,56 @@ class PCB_test(nn.Module):
         return y
 
 
+class ft_net_dinov3_mtl(nn.Module):
+    def __init__(self, class_num, make_classes=100, model_classes=500, color_classes=20, droprate=0.5, circle=False, linear_num=512):
+        super(ft_net_dinov3_mtl, self).__init__()
+        model_ft = timm.create_model('vit_small_patch16_dinov3', pretrained=True, drop_rate=droprate)
+        
+        # Freeze backbone except the last 2 blocks
+        for param in model_ft.parameters():
+            param.requires_grad = False
+            
+        for block in model_ft.blocks[-2:]:
+            for param in block.parameters():
+                param.requires_grad = True
+                
+        if hasattr(model_ft, 'norm'):
+            for param in model_ft.norm.parameters():
+                param.requires_grad = True
+
+        model_ft.head = nn.Sequential() # Remove original classification head
+        self.model = model_ft
+        self.circle = circle
+        self.num_features = 384
+        
+        # Branch A: Re-ID
+        self.classifier = ClassBlock(self.num_features, class_num, droprate, linear=linear_num, return_f=circle)
+        
+        # Branch B: Classification (Make, Model, Color)
+        self.head_make = nn.Linear(self.num_features, make_classes)
+        self.head_model = nn.Linear(self.num_features, model_classes)
+        self.head_color = nn.Linear(self.num_features, color_classes)
+        
+        self.head_make.apply(weights_init_classifier)
+        self.head_model.apply(weights_init_classifier)
+        self.head_color.apply(weights_init_classifier)
+
+    def forward(self, x):
+        features = self.model(x) # DINOv3 in timm with head=Sequential returns pooled features
+        
+        # Re-ID branch
+        reid_out = self.classifier(features)
+        
+        # Classification branch
+        make_logits = self.head_make(features)
+        model_logits = self.head_model(features)
+        color_logits = self.head_color(features)
+        
+        if self.training:
+            return reid_out, make_logits, model_logits, color_logits
+        else:
+            return features, make_logits, model_logits, color_logits
+
 '''
 # debug model structure
 # Run this code with:

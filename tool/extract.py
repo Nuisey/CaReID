@@ -11,8 +11,12 @@ def fliplr(img):
 
 def extract_feature(model, dataloader, device="cuda:0", ms=[1]):
     dummy = next(iter(dataloader))[0].to(device)
-    output = model(dummy)
-    feature_dim = output.shape[1]
+    with torch.no_grad():
+        output = model(dummy)
+    if isinstance(output, tuple):
+        feature_dim = output[0].shape[1]
+    else:
+        feature_dim = output.shape[1]
     labels = []
     idx_start = 0
 
@@ -34,6 +38,8 @@ def extract_feature(model, dataloader, device="cuda:0", ms=[1]):
                         input_X, scale_factor=scale, mode='bicubic', align_corners=False)
                 with torch.no_grad():
                     outputs = model(input_X)
+                    if isinstance(outputs, tuple):
+                        outputs = outputs[0]
                 ff += outputs
 
         fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)

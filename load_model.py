@@ -7,7 +7,7 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(SCRIPT_DIR)
 
-from model import ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, PCB
+from model import ft_net, ft_net_dense, ft_net_hr, ft_net_swin, ft_net_efficient, ft_net_NAS, PCB, ft_net_dinov3_mtl
 
 sys.path.remove(SCRIPT_DIR)
 
@@ -51,6 +51,11 @@ def create_model(n_classes, kind="resnet", **kwargs):
         return ft_net_swin(n_classes, **kwargs)
     elif kind == "PCB":
         return PCB(n_classes)
+    elif kind == "dinov3_mtl":
+        make_classes = kwargs.pop('make_classes', 100)
+        model_classes = kwargs.pop('model_classes', 500)
+        color_classes = kwargs.pop('color_classes', 20)
+        return ft_net_dinov3_mtl(n_classes, make_classes, model_classes, color_classes, **kwargs)
     else:
         raise ValueError("Model type cannot be created: {}".format(kind))
 
@@ -138,6 +143,11 @@ def load_model_from_opts(opts_file, ckpt=None, return_feature=False, remove_clas
     elif model_type == "swin":
         model = create_model(n_classes, "swin", droprate=droprate, stride=stride,
                              circle=return_feature, linear_num=linear_num)
+    elif model_type == "dinov3_mtl":
+        make_classes = opts.get("make_classes", 100)
+        model_classes = opts.get("model_classes", 500)
+        color_classes = opts.get("color_classes", 20)
+        model = create_model(n_classes, "dinov3_mtl", droprate=droprate, circle=return_feature, linear_num=linear_num, make_classes=make_classes, model_classes=model_classes, color_classes=color_classes)
     else:
         raise ValueError("Unsupported model type: {}".format(model_type))
 
