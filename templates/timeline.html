@@ -17,6 +17,10 @@
     <div style="display: flex; gap: 30px; margin: 20px; align-items: flex-start;">
         <!-- Left Side: Live Camera & Logs -->
         <div style="flex: 1; position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0;">System Status</h2>
+                <button id="pause-btn" style="background-color: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background-color 0.3s;">Stop Live Feed</button>
+            </div>
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 <img src="/video_feed" alt="Live Camera Feed Not Connected" style="width: 100%; height: auto; object-fit: contain; background-color: #000; display: block;">
             </div>
@@ -68,5 +72,32 @@
     </div>
 
     <script src="/static/js/timeline.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const pauseBtn = document.getElementById("pause-btn");
+            
+            fetch('/api/pause_status').then(r => r.json()).then(data => {
+                updatePauseButton(data.paused);
+            });
+            
+            pauseBtn.addEventListener("click", () => {
+                fetch('/api/toggle_pause', {method: 'POST'})
+                    .then(r => r.json())
+                    .then(data => {
+                        updatePauseButton(data.paused);
+                    });
+            });
+            
+            function updatePauseButton(isPaused) {
+                if (isPaused) {
+                    pauseBtn.textContent = "Resume Live Feed";
+                    pauseBtn.style.backgroundColor = "#4CAF50";
+                } else {
+                    pauseBtn.textContent = "Stop Live Feed";
+                    pauseBtn.style.backgroundColor = "#f44336";
+                }
+            }
+        });
+    </script>
 </body>
 </html>

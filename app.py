@@ -232,6 +232,22 @@ def gen_frames():
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+PAUSE_FILE = os.path.join(BASE_DIR, "pause_camera.txt")
+
+@app.route("/api/pause_status", methods=["GET"])
+def api_pause_status():
+    return jsonify({"paused": os.path.exists(PAUSE_FILE)})
+
+@app.route("/api/toggle_pause", methods=["POST"])
+def api_toggle_pause():
+    if os.path.exists(PAUSE_FILE):
+        os.remove(PAUSE_FILE)
+        return jsonify({"paused": False})
+    else:
+        with open(PAUSE_FILE, "w") as f:
+            f.write("paused")
+        return jsonify({"paused": True})
+
 @app.route("/api/state", methods=["GET", "POST"])
 def api_state():
     if request.method == "POST":

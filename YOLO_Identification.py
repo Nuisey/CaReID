@@ -53,6 +53,17 @@ while cap.isOpened():
         print("video issue")
         break
     
+    # Check if system is paused
+    if os.path.exists("pause_camera.txt"):
+        cv2.putText(frame, "SYSTEM PAUSED", (frame.shape[1]//2 - 300, frame.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 8)
+        small_frame = cv2.resize(frame, (854, 480))
+        success_encode, buffer = cv2.imencode('.jpg', small_frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        if success_encode:
+            latest_buffer = buffer.tobytes()
+        cv2.imshow(main_window_name, frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        continue
+
     start = time.perf_counter()
 
     # Get frame dimensions for rule of thirds calculation
