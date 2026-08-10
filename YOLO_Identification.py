@@ -71,8 +71,7 @@ while cap.isOpened():
     rule_of_thirds_left_boundary = frame_w // 3
     rule_of_thirds_right_boundary = 2 * (frame_w // 3)
 
-    cv2.line(frame, (rule_of_thirds_left_boundary, 0), (rule_of_thirds_left_boundary, frame_h), (0, 255, 0), 1)
-    cv2.line(frame, (rule_of_thirds_right_boundary, 0), (rule_of_thirds_right_boundary, frame_h), (0, 255, 0), 1)
+
 
     # input frame into model
     results = model.track(frame, persist=True, verbose=False)
