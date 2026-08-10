@@ -262,12 +262,29 @@ def api_state():
 
 def get_timeline_feed():
     feed = []
+    
+    # Build a set of all valid image filenames once to avoid slow filesystem lookups
+    valid_images = set()
+    if os.path.exists(UNCONFIRMED_DIR):
+        valid_images.update(os.listdir(UNCONFIRMED_DIR))
+    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery")]:
+        if os.path.exists(base):
+            for label_dir in os.listdir(base):
+                d = os.path.join(base, label_dir)
+                if os.path.isdir(d):
+                    valid_images.update(os.listdir(d))
+                    
     if os.path.exists(LOG_CSV):
         with open(LOG_CSV, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             for row in reversed(rows):
                 filename = row.get("filename", "")
+                
+                # If the image was deleted/doesn't exist anywhere, skip it
+                if filename not in valid_images:
+                    continue
+                    
                 parts = filename.split("__")
                 timestamp_str = parts[0] if len(parts) > 0 else "Unknown"
                 
