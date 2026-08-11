@@ -27,6 +27,19 @@ from dataset import ImageDataset
 from tool.extract import extract_feature
 
 h, w = 224, 224
+
+clip_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711])
+])
+
+vit_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+])
+
 data_transforms = transforms.Compose([
     transforms.Resize((h, w), interpolation=transforms.InterpolationMode.BICUBIC),
     transforms.ToTensor(),
@@ -175,7 +188,7 @@ class NewImageHandler(FileSystemEventHandler):
                     cnn_str = f"{self.test_label_map.get(cnn_pred, str(cnn_pred))} ({cnn_conf:.2f})"
                 
                 # CLIP inference
-                clip_input = data_transforms(image_pil).unsqueeze(0).to(self.device)
+                clip_input = clip_transforms(image_pil).unsqueeze(0).to(self.device)
                 with torch.no_grad():
                     clip_out = clip(clip_input)
                     clip_pred = torch.argmax(clip_out, dim=1).item()
@@ -183,7 +196,7 @@ class NewImageHandler(FileSystemEventHandler):
                     clip_str = f"{self.test_label_map.get(clip_pred, str(clip_pred))} ({clip_conf:.2f})"
                     
                 # ViT inference
-                vit_input = vit_processor(images=image_pil, return_tensors="pt").pixel_values.to(self.device)
+                vit_input = vit_transforms(image_pil).unsqueeze(0).to(self.device)
                 with torch.no_grad():
                     vit_out = vit(vit_input)
                     vit_pred = torch.argmax(vit_out, dim=1).item()

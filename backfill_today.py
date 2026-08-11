@@ -29,6 +29,18 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
+    
+    clip_transforms = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711])
+    ])
+    
+    vit_transforms = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
 
     csv_path = "Data/CarLabels_Unprocessed.csv"
     unconfirmed_dir = "Data/unconfirmed"
@@ -61,7 +73,7 @@ def main():
                             cnn_str = f"{index_to_string.get(cnn_pred, str(cnn_pred))} ({cnn_conf:.2f})"
                         
                         # CLIP inference
-                        clip_input = data_transforms(image_pil).unsqueeze(0).to(device)
+                        clip_input = clip_transforms(image_pil).unsqueeze(0).to(device)
                         with torch.no_grad():
                             clip_out = clip(clip_input)
                             clip_pred = torch.argmax(clip_out, dim=1).item()
@@ -69,7 +81,7 @@ def main():
                             clip_str = f"{index_to_string.get(clip_pred, str(clip_pred))} ({clip_conf:.2f})"
                             
                         # ViT inference
-                        vit_input = vit_processor(images=image_pil, return_tensors="pt").pixel_values.to(device)
+                        vit_input = vit_transforms(image_pil).unsqueeze(0).to(device)
                         with torch.no_grad():
                             vit_out = vit(vit_input)
                             vit_pred = torch.argmax(vit_out, dim=1).item()

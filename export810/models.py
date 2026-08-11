@@ -34,12 +34,13 @@ class ArcFaceModel(nn.Module):
 class CLIPFineTuner(nn.Module):
     def __init__(self, num_classes, model_name="openai/clip-vit-large-patch14"):
         super(CLIPFineTuner, self).__init__()
-        self.clip = CLIPModel.from_pretrained(model_name)
-        in_features = self.clip.vision_model.post_layernorm.normalized_shape[0]
+        clip = CLIPModel.from_pretrained(model_name)
+        self.vision_model = clip.vision_model
+        in_features = self.vision_model.post_layernorm.normalized_shape[0]
         self.arcface = ArcFace(in_features, num_classes)
 
     def forward(self, pixel_values):
-        vision_outputs = self.clip.vision_model(pixel_values=pixel_values)
+        vision_outputs = self.vision_model(pixel_values=pixel_values)
         features = vision_outputs.pooler_output
         return self.arcface(features)
 
