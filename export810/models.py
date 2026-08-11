@@ -69,18 +69,18 @@ def load_testing_models(device):
     
     # CNN
     cnn = ArcFaceModel(num_classes)
-    cnn.load_state_dict(torch.load('export810/best_cnn_model.pth', map_location='cpu'))
+    cnn.load_state_dict(torch.load('export810/best_cnn_model.pth', map_location='cpu'), strict=False)
     cnn.to(device).eval()
     
     # CLIP
     clip = CLIPFineTuner(num_classes)
-    clip.load_state_dict(torch.load('export810/best_clip_finetune_model.pth', map_location='cpu'))
+    clip.load_state_dict(torch.load('export810/best_clip_finetune_model.pth', map_location='cpu'), strict=False)
     clip.to(device).eval()
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
     
     # ViT
     vit = ViTArcFaceModel(num_classes)
-    vit.load_state_dict(torch.load('export810/best_vit_lora_model.pth', map_location='cpu'))
+    vit.load_state_dict(torch.load('export810/best_vit_lora_model.pth', map_location='cpu'), strict=False)
     vit.to(device).eval()
     vit_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
     

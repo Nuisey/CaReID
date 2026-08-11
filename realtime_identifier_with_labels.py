@@ -171,21 +171,24 @@ class NewImageHandler(FileSystemEventHandler):
                 with torch.no_grad():
                     cnn_out = cnn(cnn_input)
                     cnn_pred = torch.argmax(cnn_out, dim=1).item()
-                    cnn_str = self.test_label_map.get(cnn_pred, str(cnn_pred))
+                    cnn_conf = torch.max(F.softmax(cnn_out, dim=1)).item()
+                    cnn_str = f"{self.test_label_map.get(cnn_pred, str(cnn_pred))} ({cnn_conf:.2f})"
                 
                 # CLIP inference
                 clip_input = clip_processor(images=image_pil, return_tensors="pt").pixel_values.to(self.device)
                 with torch.no_grad():
                     clip_out = clip(clip_input)
                     clip_pred = torch.argmax(clip_out, dim=1).item()
-                    clip_str = self.test_label_map.get(clip_pred, str(clip_pred))
+                    clip_conf = torch.max(F.softmax(clip_out, dim=1)).item()
+                    clip_str = f"{self.test_label_map.get(clip_pred, str(clip_pred))} ({clip_conf:.2f})"
                     
                 # ViT inference
                 vit_input = vit_processor(images=image_pil, return_tensors="pt").pixel_values.to(self.device)
                 with torch.no_grad():
                     vit_out = vit(vit_input)
                     vit_pred = torch.argmax(vit_out, dim=1).item()
-                    vit_str = self.test_label_map.get(vit_pred, str(vit_pred))
+                    vit_conf = torch.max(F.softmax(vit_out, dim=1)).item()
+                    vit_str = f"{self.test_label_map.get(vit_pred, str(vit_pred))} ({vit_conf:.2f})"
                     
             except Exception as e:
                 print(f"Test models error: {e}")
@@ -248,14 +251,8 @@ if __name__ == "__main__":
     print("Loading Testing Models...")
     test_models = load_testing_models(device)
     df_comb = pd.concat([pd.read_csv('Data/train.csv'), pd.read_csv('Data/val.csv')])
-    df_comb['combined'] = df_comb['color'].astype(str) + ',' + df_comb['make'].astype(str) + ',' + df_comb['model'].astype(str)
-    unique_ids_df = df_comb[['id', 'combined']].drop_duplicates().sort_values('id')
-    test_label_map = {row['id']: row['combined'] for _, row in unique_ids_df.iterrows()}
-    
-    # We need to map the output index (0..92) to the string, but wait, the id in train.csv is exactly the class label. 
-    # ArcFace has num_classes = 93. So indices 0 to 92 correspond directly to the sorted unique IDs.
     sorted_uids = sorted(df_comb['id'].unique())
-    index_to_string = {idx: test_label_map[uid] for idx, uid in enumerate(sorted_uids)}
+    index_to_string = {idx: label_mapping.get(str(uid), "Unknown") for idx, uid in enumerate(sorted_uids)}
 
     print("Pre-processing gallery...")
     gallery_df = pd.read_csv(opt.gallery_csv_path)
