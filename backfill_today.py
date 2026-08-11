@@ -61,7 +61,7 @@ def main():
                             cnn_str = f"{index_to_string.get(cnn_pred, str(cnn_pred))} ({cnn_conf:.2f})"
                         
                         # CLIP inference
-                        clip_input = clip_processor(images=image_pil, return_tensors="pt").pixel_values.to(device)
+                        clip_input = data_transforms(image_pil).unsqueeze(0).to(device)
                         with torch.no_grad():
                             clip_out = clip(clip_input)
                             clip_pred = torch.argmax(clip_out, dim=1).item()
