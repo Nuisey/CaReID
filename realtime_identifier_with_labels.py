@@ -14,6 +14,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import pandas as pd
+from export810.models import load_testing_models
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -57,12 +58,14 @@ def extract_single_feature(model, image_tensor, device, is_mtl=False):
         return out
 
 class NewImageHandler(FileSystemEventHandler):
-    def __init__(self, model, device, gallery_features, gallery_labels, label_mapping, processed_folder_path, log_csv_path, csv_lock, is_mtl=False, mtl_maps=None, valid_pairs=None):
+    def __init__(self, model, device, gallery_features, gallery_labels, label_mapping, processed_folder_path, log_csv_path, csv_lock, is_mtl=False, mtl_maps=None, valid_pairs=None, test_models=None, test_label_map=None):
         self.model = model
         self.device = device
         self.gallery_features = gallery_features
         self.gallery_labels = gallery_labels
         self.label_mapping = label_mapping
+        self.test_models = test_models
+        self.test_label_map = test_label_map
         self.is_mtl = is_mtl
         self.mtl_maps = mtl_maps or {}
         self.valid_pairs = valid_pairs or set()
@@ -75,15 +78,15 @@ class NewImageHandler(FileSystemEventHandler):
         self.track_features = {} # Stores features per track_id for Feature Averaging
         os.makedirs(self.processed_folder_path, exist_ok=True)
 
-    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id):
+    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id, cnn_guess="", vit_guess="", clip_guess=""):
         with self.csv_lock:
             try:
                 file_exists = os.path.isfile(self.log_csv_path)
                 with open(self.log_csv_path, mode='a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     if not file_exists:
-                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id'])
-                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id])
+                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id', 'cnn_guess', 'vit_guess', 'clip_guess'])
+                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id, cnn_guess, vit_guess, clip_guess])
             except Exception as e:
                 print(f"Error writing to CSV: {e}")
 
@@ -156,8 +159,39 @@ class NewImageHandler(FileSystemEventHandler):
         natural_label = self.label_mapping.get(str(predicted_id), "Unknown")
         print(f"Car (Re-ID): {natural_label} | {mtl_result_str} | Dir: {direction} | Track: {track_id} | Conf: {confidence:.2f}")
 
+        # Test models predictions
+        cnn_str, vit_str, clip_str = "", "", ""
+        if self.test_models:
+            cnn, clip, clip_processor, vit, vit_processor = self.test_models
+            try:
+                image_pil = Image.open(image_path).convert('RGB')
+                
+                # CNN inference
+                cnn_input = data_transforms(image_pil).unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    cnn_out = cnn(cnn_input)
+                    cnn_pred = torch.argmax(cnn_out, dim=1).item()
+                    cnn_str = self.test_label_map.get(cnn_pred, str(cnn_pred))
+                
+                # CLIP inference
+                clip_input = clip_processor(images=image_pil, return_tensors="pt").pixel_values.to(self.device)
+                with torch.no_grad():
+                    clip_out = clip(clip_input)
+                    clip_pred = torch.argmax(clip_out, dim=1).item()
+                    clip_str = self.test_label_map.get(clip_pred, str(clip_pred))
+                    
+                # ViT inference
+                vit_input = vit_processor(images=image_pil, return_tensors="pt").pixel_values.to(self.device)
+                with torch.no_grad():
+                    vit_out = vit(vit_input)
+                    vit_pred = torch.argmax(vit_out, dim=1).item()
+                    vit_str = self.test_label_map.get(vit_pred, str(vit_pred))
+                    
+            except Exception as e:
+                print(f"Test models error: {e}")
+
         new_filename = f"{parts[0]}__{direction}__{track_id}__{natural_label.replace(' ', '_')}__{confidence:.4f}.jpg"
-        self.log_to_csv(new_filename, direction, natural_label, predicted_id, confidence, track_id)
+        self.log_to_csv(new_filename, direction, natural_label, predicted_id, confidence, track_id, cnn_str, vit_str, clip_str)
 
         try:
             dest_path = os.path.join(self.processed_folder_path, new_filename)
@@ -211,6 +245,18 @@ if __name__ == "__main__":
     model.to(device)
     model.eval()
 
+    print("Loading Testing Models...")
+    test_models = load_testing_models(device)
+    df_comb = pd.concat([pd.read_csv('Data/train.csv'), pd.read_csv('Data/val.csv')])
+    df_comb['combined'] = df_comb['color'].astype(str) + ',' + df_comb['make'].astype(str) + ',' + df_comb['model'].astype(str)
+    unique_ids_df = df_comb[['id', 'combined']].drop_duplicates().sort_values('id')
+    test_label_map = {row['id']: row['combined'] for _, row in unique_ids_df.iterrows()}
+    
+    # We need to map the output index (0..92) to the string, but wait, the id in train.csv is exactly the class label. 
+    # ArcFace has num_classes = 93. So indices 0 to 92 correspond directly to the sorted unique IDs.
+    sorted_uids = sorted(df_comb['id'].unique())
+    index_to_string = {idx: test_label_map[uid] for idx, uid in enumerate(sorted_uids)}
+
     print("Pre-processing gallery...")
     gallery_df = pd.read_csv(opt.gallery_csv_path)
     gallery_dataset = ImageDataset(opt.data_dir, gallery_df, "id", transform=data_transforms)
@@ -223,7 +269,8 @@ if __name__ == "__main__":
     event_handler = NewImageHandler(
         model, device, gallery_features, np.array(gallery_labels), 
         label_mapping, opt.processed_folder, opt.log_csv, csv_lock,
-        is_mtl=opt.mtl, mtl_maps=mtl_maps, valid_pairs=valid_pairs
+        is_mtl=opt.mtl, mtl_maps=mtl_maps, valid_pairs=valid_pairs,
+        test_models=test_models, test_label_map=index_to_string
     )
     
     watch_folder_abs = os.path.abspath(opt.watch_folder)

@@ -304,6 +304,9 @@ def get_timeline_feed():
                     "direction": row.get("direction", "unknown"),
                     "predicted_label": row.get("predicted_label", ""),
                     "confidence": float(row.get("confidence", 0.0)) if row.get("confidence") else 0.0,
+                    "cnn_guess": row.get("cnn_guess", ""),
+                    "vit_guess": row.get("vit_guess", ""),
+                    "clip_guess": row.get("clip_guess", ""),
                     "burst_images": [filename],
                     "all_track_ids": [filename]
                 }
@@ -339,6 +342,9 @@ def get_timeline_feed():
                             past_event["time"] = event["time"]
                             past_event["timestamp_obj"] = event["timestamp_obj"]
                             past_event["predicted_label"] = event["predicted_label"]
+                            past_event["cnn_guess"] = event["cnn_guess"]
+                            past_event["vit_guess"] = event["vit_guess"]
+                            past_event["clip_guess"] = event["clip_guess"]
                         break
                         
                 if not is_burst:

@@ -129,7 +129,12 @@ async function loadFeed() {
             </div>
             <img src="/images/${item.filename}" alt="Car crop" style="cursor: pointer;" onclick="openInspectModal('${burstStr}', '${labelStr}')" title="Click to view all ${item.burst_images.length} images">
             <div class="timeline-details">
-                <h3 style="margin-top: 0;">${item.predicted_label}</h3>
+                <h3 style="margin-top: 0; margin-bottom: 5px;">${item.predicted_label}</h3>
+                <div style="font-size: 13px; color: #a8b2d1; margin-bottom: 10px; background-color: #1a1a2e; padding: 5px; border-radius: 4px;">
+                    <div><b>CNN:</b> ${item.cnn_guess || 'N/A'}</div>
+                    <div><b>ViT:</b> ${item.vit_guess || 'N/A'}</div>
+                    <div><b>CLIP:</b> ${item.clip_guess || 'N/A'}</div>
+                </div>
                 <p>Time: ${item.time}</p>
                 <p>Confidence: ${parseFloat(item.confidence).toFixed(2)}</p>
                 <p style="font-size: 12px; color: #aaa;">Burst size: ${item.burst_images.length} image(s)</p>
