@@ -1,39 +1,20 @@
 const feedContainer = document.getElementById('feed');
-let currentEditFilenames = [];
-let persistedSelectedFilenames = new Set();
 
-feedContainer.addEventListener('change', function(e) {
-    if (e.target && e.target.classList.contains('timeline-checkbox')) {
-        if (e.target.checked) {
-            persistedSelectedFilenames.add(e.target.value);
-        } else {
-            persistedSelectedFilenames.delete(e.target.value);
-        }
-    }
-});
+let expandedBreakdowns = new Set();
 
-async function loadLabels() {
-    const res = await fetch('/api/labels');
-    const data = await res.json();
-    const list = document.getElementById('edit-car-list');
-    list.innerHTML = '';
-    data.forEach(item => {
-        const option = document.createElement('option');
-        option.value = `${item.label} (ID: ${item.id})`;
-        list.appendChild(option);
-    });
-}
-loadLabels();
-
-window.openEditModal = function(filename) {
-    if (persistedSelectedFilenames.has(filename)) {
-        currentEditFilenames = Array.from(persistedSelectedFilenames);
+window.toggleBreakdown = function(filename) {
+    if (expandedBreakdowns.has(filename)) {
+        expandedBreakdowns.delete(filename);
     } else {
-        currentEditFilenames = [filename];
+        expandedBreakdowns.add(filename);
     }
-    document.getElementById('edit-car-select').value = '';
-    document.getElementById('edit-modal').style.display = 'block';
+    const el = document.getElementById('models-' + filename);
+    if (el) {
+        el.style.display = expandedBreakdowns.has(filename) ? 'block' : 'none';
+    }
 }
+
+
 
 window.openInspectModal = function(burstImagesStr, labelTitle) {
     const images = JSON.parse(decodeURIComponent(burstImagesStr));
@@ -53,32 +34,7 @@ window.openInspectModal = function(burstImagesStr, labelTitle) {
     document.getElementById('inspect-modal').style.display = 'block';
 }
 
-document.getElementById('edit-save-btn').onclick = async function() {
-    const selection = document.getElementById('edit-car-select').value;
-    if (!selection) return;
-    
-    const match = selection.match(/(.+) \(ID: (.+)\)/);
-    if (!match) {
-        alert("Invalid selection format");
-        return;
-    }
-    const new_label = match[1];
-    const new_id = match[2];
-    
-    await fetch('/api/update_label', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            filenames: currentEditFilenames,
-            new_id: new_id,
-            new_label: new_label
-        })
-    });
-    
-    currentEditFilenames.forEach(f => persistedSelectedFilenames.delete(f));
-    document.getElementById('edit-modal').style.display = 'none';
-    loadFeed();
-}
+
 
 let loggedEventIds = new Set();
 let isFirstLoad = true;
@@ -118,24 +74,25 @@ async function loadFeed() {
                             (item.direction === 'leaving' ? 'status-leaving' : 'status-unknown');
         const statusText = item.direction.toUpperCase();
         
-        const isChecked = persistedSelectedFilenames.has(item.filename) ? 'checked' : '';
-        
         const burstStr = encodeURIComponent(JSON.stringify(item.burst_images));
         const labelStr = `${item.predicted_label}`;
         
         div.innerHTML = `
-            <div style="display: flex; align-items: center; margin-right: 15px;">
-                <input type="checkbox" class="timeline-checkbox" value="${item.filename}" style="width: 20px; height: 20px; cursor: pointer;" ${isChecked}>
-            </div>
             <img src="/images/${item.filename}" alt="Car crop" style="cursor: pointer;" onclick="openInspectModal('${burstStr}', '${labelStr}')" title="Click to view all ${item.burst_images.length} images">
             <div class="timeline-details">
-                <h3 style="margin-top: 0;">${item.predicted_label}</h3>
+                <h3 style="margin-top: 0; margin-bottom: 5px;">${item.predicted_label}</h3>
+                <button class="timeline-breakdown-btn" onclick="toggleBreakdown('${item.filename}')">Model Breakdown</button>
+                <div id="models-${item.filename}" style="display: ${expandedBreakdowns.has(item.filename) ? 'block' : 'none'}; font-size: 12px; color: #a8b2d1; margin-bottom: 10px; background-color: #1a1a2e; padding: 6px; border-radius: 4px; border-left: 3px solid #88c0d0;">
+                    <div style="margin-bottom: 3px;"><b>ReID:</b> ${item.predicted_label || 'N/A'} (${parseFloat(item.confidence).toFixed(2)})</div>
+                    <div style="margin-bottom: 3px;"><b>CNN:</b> ${item.cnn_guess || 'N/A'}</div>
+                    <div style="margin-bottom: 3px;"><b>ViT:</b> ${item.vit_guess || 'N/A'}</div>
+                    <div><b>CLIP:</b> ${item.clip_guess || 'N/A'}</div>
+                </div>
                 <p>Time: ${item.time}</p>
                 <p>Confidence: ${parseFloat(item.confidence).toFixed(2)}</p>
                 <p style="font-size: 12px; color: #aaa;">Burst size: ${item.burst_images.length} image(s)</p>
                 <span class="status-badge ${statusClass}">${statusText}</span>
             </div>
-            <button class="timeline-edit-btn" onclick="openEditModal('${item.filename}')">✎ Edit</button>
         `;
         feedContainer.appendChild(div);
     });

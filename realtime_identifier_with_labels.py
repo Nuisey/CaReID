@@ -14,6 +14,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import pandas as pd
+from export810.models import load_testing_models
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -26,6 +27,19 @@ from dataset import ImageDataset
 from tool.extract import extract_feature
 
 h, w = 224, 224
+
+clip_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711])
+])
+
+vit_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+])
+
 data_transforms = transforms.Compose([
     transforms.Resize((h, w), interpolation=transforms.InterpolationMode.BICUBIC),
     transforms.ToTensor(),
@@ -57,12 +71,14 @@ def extract_single_feature(model, image_tensor, device, is_mtl=False):
         return out
 
 class NewImageHandler(FileSystemEventHandler):
-    def __init__(self, model, device, gallery_features, gallery_labels, label_mapping, processed_folder_path, log_csv_path, csv_lock, is_mtl=False, mtl_maps=None, valid_pairs=None):
+    def __init__(self, model, device, gallery_features, gallery_labels, label_mapping, processed_folder_path, log_csv_path, csv_lock, is_mtl=False, mtl_maps=None, valid_pairs=None, test_models=None, test_label_map=None):
         self.model = model
         self.device = device
         self.gallery_features = gallery_features
         self.gallery_labels = gallery_labels
         self.label_mapping = label_mapping
+        self.test_models = test_models
+        self.test_label_map = test_label_map
         self.is_mtl = is_mtl
         self.mtl_maps = mtl_maps or {}
         self.valid_pairs = valid_pairs or set()
@@ -75,15 +91,15 @@ class NewImageHandler(FileSystemEventHandler):
         self.track_features = {} # Stores features per track_id for Feature Averaging
         os.makedirs(self.processed_folder_path, exist_ok=True)
 
-    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id):
+    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id, cnn_guess="", vit_guess="", clip_guess=""):
         with self.csv_lock:
             try:
                 file_exists = os.path.isfile(self.log_csv_path)
                 with open(self.log_csv_path, mode='a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     if not file_exists:
-                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id'])
-                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id])
+                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id', 'cnn_guess', 'vit_guess', 'clip_guess'])
+                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id, cnn_guess, vit_guess, clip_guess])
             except Exception as e:
                 print(f"Error writing to CSV: {e}")
 
@@ -156,11 +172,85 @@ class NewImageHandler(FileSystemEventHandler):
         natural_label = self.label_mapping.get(str(predicted_id), "Unknown")
         print(f"Car (Re-ID): {natural_label} | {mtl_result_str} | Dir: {direction} | Track: {track_id} | Conf: {confidence:.2f}")
 
-        new_filename = f"{parts[0]}__{direction}__{track_id}__{natural_label.replace(' ', '_')}__{confidence:.4f}.jpg"
-        self.log_to_csv(new_filename, direction, natural_label, predicted_id, confidence, track_id)
+        # Test models predictions
+        cnn_str, vit_str, clip_str = "", "", ""
+        cnn_label, vit_label, clip_label = "", "", ""
+        cnn_conf, vit_conf, clip_conf = 0.0, 0.0, 0.0
+        
+        if self.test_models:
+            cnn, clip, clip_processor, vit, vit_processor = self.test_models
+            try:
+                image_pil = Image.open(image_path).convert('RGB')
+                
+                # CNN inference
+                cnn_input = data_transforms(image_pil).unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    cnn_out = cnn(cnn_input)
+                    cnn_pred = torch.argmax(cnn_out, dim=1).item()
+                    cnn_conf = torch.max(F.softmax(cnn_out, dim=1)).item()
+                    cnn_label = self.test_label_map.get(cnn_pred, str(cnn_pred))
+                    cnn_str = f"{cnn_label} ({cnn_conf:.2f})"
+                
+                # CLIP inference
+                clip_input = clip_transforms(image_pil).unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    clip_out = clip(clip_input)
+                    clip_pred = torch.argmax(clip_out, dim=1).item()
+                    clip_conf = torch.max(F.softmax(clip_out, dim=1)).item()
+                    clip_label = self.test_label_map.get(clip_pred, str(clip_pred))
+                    clip_str = f"{clip_label} ({clip_conf:.2f})"
+                    
+                # ViT inference
+                vit_input = vit_transforms(image_pil).unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    vit_out = vit(vit_input)
+                    vit_pred = torch.argmax(vit_out, dim=1).item()
+                    vit_conf = torch.max(F.softmax(vit_out, dim=1)).item()
+                    vit_label = self.test_label_map.get(vit_pred, str(vit_pred))
+                    vit_str = f"{vit_label} ({vit_conf:.2f})"
+                    
+            except Exception as e:
+                print(f"Test models error: {e}")
+
+        # Voting logic
+        preds = [
+            {'label': natural_label, 'conf': confidence},
+            {'label': cnn_label, 'conf': cnn_conf},
+            {'label': clip_label, 'conf': clip_conf},
+            {'label': vit_label, 'conf': vit_conf}
+        ]
+        
+        votes = {}
+        for p in preds:
+            if p['conf'] >= 0.80 and p['label']:
+                votes[p['label']] = votes.get(p['label'], 0) + 1
+                
+        best_votes = 0
+        best_label = None
+        for lbl, count in votes.items():
+            if count > best_votes:
+                best_votes = count
+                best_label = lbl
+                
+        data_dir = os.path.dirname(self.processed_folder_path)
+        if best_votes >= 3:
+            final_label = best_label
+            target_folder = os.path.join(data_dir, "Unsynced")
+        elif best_votes == 2:
+            final_label = best_label
+            target_folder = self.processed_folder_path # Unconfirmed
+        else:
+            final_label = "Unseen Car"
+            target_folder = os.path.join(data_dir, "Unseen")
+            predicted_id = "Unseen"
+            
+        os.makedirs(target_folder, exist_ok=True)
+
+        new_filename = f"{parts[0]}__{direction}__{track_id}__{final_label.replace(' ', '_')}__{confidence:.4f}.jpg"
+        self.log_to_csv(new_filename, direction, final_label, predicted_id, confidence, track_id, cnn_str, vit_str, clip_str)
 
         try:
-            dest_path = os.path.join(self.processed_folder_path, new_filename)
+            dest_path = os.path.join(target_folder, new_filename)
             shutil.move(image_path, dest_path)
         except Exception as e:
             if image_path in self.processed_files:
@@ -211,6 +301,12 @@ if __name__ == "__main__":
     model.to(device)
     model.eval()
 
+    print("Loading Testing Models...")
+    test_models = load_testing_models(device)
+    df_comb = pd.concat([pd.read_csv('Data/train.csv'), pd.read_csv('Data/val.csv')])
+    sorted_uids = sorted(df_comb['id'].unique())
+    index_to_string = {idx: label_mapping.get(str(uid), "Unknown") for idx, uid in enumerate(sorted_uids)}
+
     print("Pre-processing gallery...")
     gallery_df = pd.read_csv(opt.gallery_csv_path)
     gallery_dataset = ImageDataset(opt.data_dir, gallery_df, "id", transform=data_transforms)
@@ -223,7 +319,8 @@ if __name__ == "__main__":
     event_handler = NewImageHandler(
         model, device, gallery_features, np.array(gallery_labels), 
         label_mapping, opt.processed_folder, opt.log_csv, csv_lock,
-        is_mtl=opt.mtl, mtl_maps=mtl_maps, valid_pairs=valid_pairs
+        is_mtl=opt.mtl, mtl_maps=mtl_maps, valid_pairs=valid_pairs,
+        test_models=test_models, test_label_map=index_to_string
     )
     
     watch_folder_abs = os.path.abspath(opt.watch_folder)
