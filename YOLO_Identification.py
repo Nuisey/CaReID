@@ -34,12 +34,21 @@ DEMO_DIR = "demo"
 os.makedirs(DEMO_DIR, exist_ok=True)
 
 # Demo video variables
-video_segment_duration = 300  # 5 minutes
-current_segment_start = time.time()
-current_segment_car_ids = set()
-highest_car_count = 0
-video_writer = None
-temp_video_path = "temp_demo_segment.mp4"
+class VideoTracker:
+    def __init__(self, duration, name, temp_path, target_path):
+        self.duration = duration
+        self.name = name
+        self.temp_path = temp_path
+        self.target_path = target_path
+        self.start_time = time.time()
+        self.car_ids = set()
+        self.highest_count = -1
+        self.writer = None
+
+trackers = [
+    VideoTracker(180, "3-minute", "temp_3min.mp4", os.path.join(DEMO_DIR, "busiest_3min.mp4")),
+    VideoTracker(30, "30-second", "temp_30sec.mp4", os.path.join(DEMO_DIR, "busiest_30sec.mp4"))
+]
 video_fps = 30.0
 
 # load model
@@ -150,7 +159,8 @@ while cap.isOpened():
 
                             # SOLUTION: Only save if the car is actively moving! (Ignores parked cars)
                             if direction != "unknown":
-                                current_segment_car_ids.add(track_id)
+                                for tracker in trackers:
+                                    tracker.car_ids.add(track_id)
                                 track_history[track_id]['last_save_time'] = current_time
                                 
                                 cropped_vehicle = frame[y1:y2, x1:x2]
@@ -179,37 +189,37 @@ while cap.isOpened():
     if success_encode:
         latest_buffer = buffer.tobytes()
 
-    # --- Busiest 5-minute video logic ---
-    if video_writer is None:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video_writer = cv2.VideoWriter(temp_video_path, fourcc, video_fps, (854, 480))
-        
-    # Write the CLEAN frame to the video, so it has no bounding boxes/labels
-    clean_small_frame = cv2.resize(frame, (854, 480))
-    video_writer.write(clean_small_frame)
+    # --- Busiest segments logic ---
+    for tracker in trackers:
+        if tracker.writer is None:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            tracker.writer = cv2.VideoWriter(tracker.temp_path, fourcc, video_fps, (frame_w, frame_h))
+            
+        # Write the CLEAN frame to the video, so it has no bounding boxes/labels
+        tracker.writer.write(frame)
 
-    if time.time() - current_segment_start >= video_segment_duration:
-        video_writer.release()
-        video_writer = None
-        
-        target_video_path = os.path.join(DEMO_DIR, "busiest_5min.mp4")
-        if not os.path.exists(target_video_path):
-            highest_car_count = -1  # Force save if the file was moved/deleted
+        if time.time() - tracker.start_time >= tracker.duration:
+            tracker.writer.release()
+            tracker.writer = None
             
-        if len(current_segment_car_ids) > highest_car_count:
-            highest_car_count = len(current_segment_car_ids)
-            shutil.copy(temp_video_path, target_video_path)
-            print(f"*** New Busiest 5-Minute Interval Found! ({highest_car_count} cars) - Saved to demo/busiest_5min.mp4 ***")
-            
-        current_segment_start = time.time()
-        current_segment_car_ids = set()
+            if not os.path.exists(tracker.target_path):
+                tracker.highest_count = -1  # Force save if the file was moved/deleted
+                
+            if len(tracker.car_ids) > tracker.highest_count:
+                tracker.highest_count = len(tracker.car_ids)
+                shutil.copy(tracker.temp_path, tracker.target_path)
+                print(f"*** New Busiest {tracker.name} Interval Found! ({tracker.highest_count} cars) - Saved to {tracker.target_path} ***")
+                
+            tracker.start_time = time.time()
+            tracker.car_ids = set()
     # ------------------------------------
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
-if video_writer is not None:
-    video_writer.release()
+for tracker in trackers:
+    if tracker.writer is not None:
+        tracker.writer.release()
 cv2.destroyAllWindows()
 print(f"Program finished. Images are saved in the '{SAVE_DIR}' folder.")

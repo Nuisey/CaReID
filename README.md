@@ -48,63 +48,39 @@ A YOLO model detects and tracks vehicles in real-time from a live camera feed. B
 
 flowchart TD
 
-    subgraph Edge Processing
-
-        A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
-
-        B -->|Tracks Trajectory| C{Arrival or Departure?}
-
-        B -->|Crops Vehicle| D[Image Preprocessing]
-
+    subgraph Edge Processing
+        A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
+        B -->|Tracks Trajectory| C{Arrival or Departure?}
+        B -->|Crops Vehicle| D[Image Preprocessing]
   
-
-        D --> E[ReID Model]
-
-        D --> F[CNN Model]
-
-        D --> G[ViT Model]
-
-        D --> H[CLIP Model]
-
+        D --> E[ResNet ReID Model]
+        D --> F[CNN Model]
+        D --> G[ViT Model]
+        D --> H[CLIP Model]
   
+        E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
+        I -->|Valid Votes| J{Consensus Voting}
+        
+        J -- ">= 3 Models Agree" --> K[Folder: Unsynced]
+        J -- "Exactly 2 Models Agree" --> L[Folder: Unconfirmed]
+        J -- "< 2 Agree (Unseen)" --> M[Folder: Unseen\nLabel: Unseen Car]
+    end
 
-        E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
-
-        I -->|Valid Votes| J{Consensus Voting}
-
-        J -- ">= 3 Models Agree" --> K[Folder: Unsynced]
-
-        J -- "Exactly 2 Models Agree" --> L[Folder: Unconfirmed]
-
-        J -- "< 2 Agree (Unseen)" --> M[Folder: Unseen\nLabel: Unseen Car]
-
-    end
-
+    subgraph Background Verification
+        L -->|Burst of Images| P[Gemini Vision LLM]
+        P -->|Agrees with local prediction?| Q{Match?}
+        Q -- Yes --> K
+    end
   
-
-    subgraph Background Verification
-
-        L -->|Burst of Images| P[Gemini Vision LLM]
-
-        P -->|Agrees with local prediction?| Q{Match?}
-
-        Q -- Yes --> K
-
-        Q -- No --> R[Requires Manual Review]
-
-    end
-
-  
-
-    subgraph Dashboard & Logging
-
-        K & L & M --> N[Log to CSV]
-
-        N --> O[Update Local Web Dashboard]
-
-        R -.-> O
-
-    end
+    subgraph Flask Web Dashboard
+        K & L & M --> O[Update Local Web Dashboard]
+        
+        Q -- No --> R[Manual Review UI]
+        R -- User Approves --> K
+        
+        K --> S[Mass Labeling UI]
+        S --> T[Folder: Gallery]
+    end
 
 ```
 
