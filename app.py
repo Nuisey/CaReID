@@ -155,8 +155,8 @@ latest_frame = None
 # Paths
 # BASE_DIR is defined at top of file
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
-LOG_CSV = os.path.join(BASE_DIR, "Data", "CarLabels_Unprocessed.csv")
-UNCONFIRMED_DIR = os.path.join(BASE_DIR, "Data", "Unconfirmed")
+LOG_CSV = os.path.join(BASE_DIR, "demo", "CarLabels_Unprocessed.csv")
+UNCONFIRMED_DIR = os.path.join(BASE_DIR, "demo", "Unconfirmed")
 LABEL_MAP = os.path.join(BASE_DIR, "Data", "label_map.csv")
 
 # Initialize state.json if not exists
