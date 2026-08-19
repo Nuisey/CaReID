@@ -17,31 +17,7 @@ On a personal level, this project gave me the opportunity to overcome a few chal
 3. How to organize this data into a working system to automate decision-making. 
 
 ---
-## Method and Results
 
-
-#### Detection & Tracking:
-A YOLO model detects and tracks vehicles in real-time from a live camera feed. By analyzing their vertical coordinate trajectories, the system determines arrival or departure status and extracts a burst of cropped images of the vehicles.
-
-#### Classification
-**Ensemble Inference:** The cropped images are passed into a four-model ensemble consisting of:
-- A custom Siamese ReID (Re-Identification) model
-- A custom Convolutional Neural Network (CNN)
-- A Vision Transformer (ViT)
-- A pre-trained CLIP model with a linear probe
-
- **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
-
-#### Labeling
- **Intelligent Routing:** Based on the consensus, the system routes the images to different confidence tiers:
- - **>= 3 votes:** High confidence (sent to `Unsynced` for immediate logging).
- - **Exactly 2 votes:** Medium confidence (sent to `Unconfirmed`).
- - **< 2 votes:** Low confidence or completely new vehicle (flagged as `Unseen Car`).
-
-**LLM Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles placed in the `Unconfirmed` tier. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
-
-
----
 # Visual Architecture
 
 ```mermaid
@@ -83,6 +59,32 @@ flowchart TD
     end
 
 ```
+
+---
+
+## Method and Results
+
+
+#### Detection & Tracking:
+A YOLO model detects and tracks vehicles in real-time from a live camera feed. By analyzing their vertical coordinate trajectories, the system determines arrival or departure status and extracts a burst of cropped images of the vehicles.
+
+#### Classification
+**Ensemble Inference:** The cropped images are passed into a four-model ensemble consisting of:
+- A custom Siamese ReID (Re-Identification) model
+- A custom Convolutional Neural Network (CNN)
+- A Vision Transformer (ViT)
+- A pre-trained CLIP model with a linear probe
+
+ **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
+
+#### Labeling
+ **Intelligent Routing:** Based on the consensus, the system routes the images to different confidence tiers:
+ - **>= 3 votes:** High confidence (sent to `Unsynced` for immediate logging).
+ - **Exactly 2 votes:** Medium confidence (sent to `Unconfirmed`).
+ - **< 2 votes:** Low confidence or completely new vehicle (flagged as `Unseen Car`).
+
+**LLM Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles placed in the `Unconfirmed` tier. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
+
 
 ---
 ## Security and Ethics
