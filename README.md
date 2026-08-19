@@ -34,10 +34,10 @@ flowchart TD
         D --> G[ViT Model]
         D --> H[CLIP Model]
   
-        E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
-        I -->|Valid Votes| J{Consensus Voting}
+        E & F & G & H -->|"Label & Confidence"| I("Threshold Filter >= 80%")
+        I -->|"Valid Votes"| J{Consensus Voting}
         
-        M[Folder: Unseen\nLabel: Unseen Car]
+        M["Folder: Unseen<br>Label: Unseen Car"]
     end
 
     subgraph Background Verification
@@ -52,16 +52,16 @@ flowchart TD
         T[Folder: Gallery]
     end
 
-    J -- ">= 3 Models Agree" --> S
-    J -- "Exactly 2 Models Agree" --> P
-    J -- "< 2 Agree (Unseen)" --> M
+    J -->|">= 3 Models Agree"| S
+    J -->|"Exactly 2 Models Agree"| P
+    J -->|"< 2 Agree (Unseen)"| M
     
-    P -->|Agrees with local prediction?| Q
-    Q -- Yes --> S
+    P -->|"Agrees with local prediction?"| Q
+    Q -->|"Yes"| S
     
     J --> O
-    Q -- No --> R
-    R -- User Approves --> S
+    Q -->|"No"| R
+    R -->|"User Approves"| S
     S --> T
 
 ```
@@ -89,8 +89,14 @@ A YOLO model detects and tracks vehicles in real-time from a live camera feed. B
  - **Exactly 2 votes:** Medium confidence (sent to `Unconfirmed`).
  - **< 2 votes:** Low confidence or completely new vehicle (flagged as `Unseen Car`).
 
-**LLM Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles placed in the `Unconfirmed` tier. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
+ **Bulk Labeling**
+ ![alt text](image-2.png)
 
+**LLM Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles placed in the `Unconfirmed` tier. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
+<p align="center">
+  <img src="image.png" width="45%" />
+  <img src="image-1.png" width="51%" />
+</p>
 
 ---
 ## Security and Ethics
