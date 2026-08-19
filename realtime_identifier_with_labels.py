@@ -91,15 +91,15 @@ class NewImageHandler(FileSystemEventHandler):
         self.track_features = {} # Stores features per track_id for Feature Averaging
         os.makedirs(self.processed_folder_path, exist_ok=True)
 
-    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id, cnn_guess="", vit_guess="", clip_guess=""):
+    def log_to_csv(self, filename, direction, predicted_label, predicted_id, confidence, track_id, cnn_guess="", vit_guess="", clip_guess="", resnet_guess=""):
         with self.csv_lock:
             try:
                 file_exists = os.path.isfile(self.log_csv_path)
                 with open(self.log_csv_path, mode='a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
                     if not file_exists:
-                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id', 'cnn_guess', 'vit_guess', 'clip_guess'])
-                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id, cnn_guess, vit_guess, clip_guess])
+                        writer.writerow(['filename', 'direction', 'predicted_label', 'ID', 'confidence', 'track_id', 'cnn_guess', 'vit_guess', 'clip_guess', 'resnet_guess'])
+                    writer.writerow([filename, direction, predicted_label, predicted_id, f"{confidence:.4f}", track_id, cnn_guess, vit_guess, clip_guess, resnet_guess])
             except Exception as e:
                 print(f"Error writing to CSV: {e}")
 
@@ -247,7 +247,8 @@ class NewImageHandler(FileSystemEventHandler):
         os.makedirs(target_folder, exist_ok=True)
 
         new_filename = f"{parts[0]}__{direction}__{track_id}__{final_label.replace(' ', '_')}__{confidence:.4f}.jpg"
-        self.log_to_csv(new_filename, direction, final_label, predicted_id, confidence, track_id, cnn_str, vit_str, clip_str)
+        resnet_str = f"{natural_label} ({confidence:.2f})"
+        self.log_to_csv(new_filename, direction, final_label, predicted_id, confidence, track_id, cnn_str, vit_str, clip_str, resnet_str)
 
         try:
             dest_path = os.path.join(target_folder, new_filename)

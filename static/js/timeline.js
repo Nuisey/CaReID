@@ -83,7 +83,7 @@ async function loadFeed() {
                 <h3 style="margin-top: 0; margin-bottom: 5px;">${item.predicted_label}</h3>
                 <button class="timeline-breakdown-btn" onclick="toggleBreakdown('${item.filename}')">Model Breakdown</button>
                 <div id="models-${item.filename}" style="display: ${expandedBreakdowns.has(item.filename) ? 'block' : 'none'}; font-size: 12px; color: #a8b2d1; margin-bottom: 10px; background-color: #1a1a2e; padding: 6px; border-radius: 4px; border-left: 3px solid #88c0d0;">
-                    <div style="margin-bottom: 3px;"><b>ReID:</b> ${item.predicted_label || 'N/A'} (${parseFloat(item.confidence).toFixed(2)})</div>
+                    <div style="margin-bottom: 3px;"><b>ResNet:</b> ${item.resnet_guess || 'N/A'}</div>
                     <div style="margin-bottom: 3px;"><b>CNN:</b> ${item.cnn_guess || 'N/A'}</div>
                     <div style="margin-bottom: 3px;"><b>ViT:</b> ${item.vit_guess || 'N/A'}</div>
                     <div><b>CLIP:</b> ${item.clip_guess || 'N/A'}</div>

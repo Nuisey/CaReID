@@ -322,6 +322,7 @@ def get_timeline_feed():
                     "cnn_guess": row.get("cnn_guess", ""),
                     "vit_guess": row.get("vit_guess", ""),
                     "clip_guess": row.get("clip_guess", ""),
+                    "resnet_guess": row.get("resnet_guess", ""),
                     "burst_images": [filename],
                     "all_track_ids": [filename]
                 }
@@ -360,6 +361,7 @@ def get_timeline_feed():
                             past_event["cnn_guess"] = event["cnn_guess"]
                             past_event["vit_guess"] = event["vit_guess"]
                             past_event["clip_guess"] = event["clip_guess"]
+                            past_event["resnet_guess"] = event["resnet_guess"]
                         break
                         
                 if not is_burst:
