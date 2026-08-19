@@ -35,7 +35,13 @@ async function fetchSyncStatus() {
             }
         }
         
-        renderGrid(data.tracks);
+        // Only re-render the grid if the tracks data has actually changed to prevent resetting scroll position and inputs
+        const currentTracksHash = JSON.stringify(data.tracks);
+        if (currentTracksHash !== window._lastTracksHash) {
+            renderGrid(data.tracks);
+            window._lastTracksHash = currentTracksHash;
+        }
+        
         if (data.logs && data.logs.length > 0) {
             renderLogs(data.logs);
         }

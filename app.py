@@ -267,16 +267,27 @@ def get_timeline_feed():
     valid_images = set()
     if os.path.exists(UNCONFIRMED_DIR):
         valid_images.update(os.listdir(UNCONFIRMED_DIR))
+    
+    demo_unconf = os.path.join(BASE_DIR, "Data", "Demo_Output", "Unconfirmed")
+    if os.path.exists(demo_unconf):
+        valid_images.update(os.listdir(demo_unconf))
+        
     unseen_dir = os.path.join(BASE_DIR, "Data", "Unseen")
     if os.path.exists(unseen_dir):
         valid_images.update(os.listdir(unseen_dir))
         
-    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery")]:
+    demo_unseen = os.path.join(BASE_DIR, "Data", "Demo_Output", "Unseen")
+    if os.path.exists(demo_unseen):
+        valid_images.update(os.listdir(demo_unseen))
+        
+    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery"), os.path.join(BASE_DIR, "Data", "Demo_Output", "Unsynced")]:
         if os.path.exists(base):
-            for label_dir in os.listdir(base):
-                d = os.path.join(base, label_dir)
+            for item in os.listdir(base):
+                d = os.path.join(base, item)
                 if os.path.isdir(d):
                     valid_images.update(os.listdir(d))
+                elif os.path.isfile(d):
+                    valid_images.add(item)
                     
     if os.path.exists(LOG_CSV):
         with open(LOG_CSV, "r", encoding="utf-8") as f:
@@ -752,17 +763,25 @@ def find_image_path(filename):
     p = os.path.join(UNCONFIRMED_DIR, filename)
     if os.path.exists(p): return UNCONFIRMED_DIR
     
+    p_demo = os.path.join(BASE_DIR, "Data", "Demo_Output", "Unconfirmed", filename)
+    if os.path.exists(p_demo): return os.path.join(BASE_DIR, "Data", "Demo_Output", "Unconfirmed")
+    
     p_unseen = os.path.join(BASE_DIR, "Data", "Unseen", filename)
     if os.path.exists(p_unseen): return os.path.join(BASE_DIR, "Data", "Unseen")
     
-    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery")]:
+    p_demo_unseen = os.path.join(BASE_DIR, "Data", "Demo_Output", "Unseen", filename)
+    if os.path.exists(p_demo_unseen): return os.path.join(BASE_DIR, "Data", "Demo_Output", "Unseen")
+    
+    for base in [os.path.join(BASE_DIR, "Data", "unsynced"), os.path.join(BASE_DIR, "Data", "Gallery"), os.path.join(BASE_DIR, "Data", "Demo_Output", "Unsynced")]:
         if os.path.exists(base):
+            p_direct = os.path.join(base, filename)
+            if os.path.exists(p_direct): return base
             for label_dir in os.listdir(base):
                 d = os.path.join(base, label_dir)
                 if os.path.isdir(d):
-                    p = os.path.join(d, filename)
-                    if os.path.exists(p):
-                        return d
+                    p2 = os.path.join(d, filename)
+                    if os.path.exists(p2): return d
+                    
     return None
 
 @app.route("/images/<filename>")
@@ -783,7 +802,7 @@ def get_unsynced_feed():
     for e in feed:
         if e['burst_images']:
             first_img = e['burst_images'][0]
-            if os.path.exists(os.path.join(UNCONFIRMED_DIR, first_img)):
+            if os.path.exists(os.path.join(UNCONFIRMED_DIR, first_img)) or os.path.exists(os.path.join(BASE_DIR, "Data", "Demo_Output", "Unconfirmed", first_img)):
                 unsynced.append(e)
     return unsynced
 

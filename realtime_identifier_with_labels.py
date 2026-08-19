@@ -302,10 +302,15 @@ if __name__ == "__main__":
     model.eval()
 
     print("Loading Testing Models...")
-    test_models = load_testing_models(device)
-    df_comb = pd.concat([pd.read_csv('Data/train.csv'), pd.read_csv('Data/val.csv')])
-    sorted_uids = sorted(df_comb['id'].unique())
-    index_to_string = {idx: label_mapping.get(str(uid), "Unknown") for idx, uid in enumerate(sorted_uids)}
+    test_models = None
+    try:
+        test_models = load_testing_models(device)
+        df_comb = pd.concat([pd.read_csv('Data/train.csv'), pd.read_csv('Data/val.csv')])
+        sorted_uids = sorted(df_comb['id'].unique())
+        index_to_string = {idx: label_mapping.get(str(uid), "Unknown") for idx, uid in enumerate(sorted_uids)}
+    except Exception as e:
+        print(f"Skipping test models loading (weights missing?): {e}")
+        index_to_string = {}
 
     print("Pre-processing gallery...")
     gallery_df = pd.read_csv(opt.gallery_csv_path)
@@ -325,6 +330,13 @@ if __name__ == "__main__":
     
     watch_folder_abs = os.path.abspath(opt.watch_folder)
     os.makedirs(watch_folder_abs, exist_ok=True)
+    with open("ai_ready.txt", "w") as f:
+        f.write("ready")
+        
+    print(f"Processing existing images in {watch_folder_abs}...")
+    for fname in os.listdir(watch_folder_abs):
+        if fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+            event_handler.process_image(os.path.join(watch_folder_abs, fname), wait_for_write=False)
 
     observer = Observer()
     observer.schedule(event_handler, watch_folder_abs, recursive=False)

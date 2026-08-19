@@ -183,7 +183,10 @@ while cap.isOpened():
     if video_writer is None:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         video_writer = cv2.VideoWriter(temp_video_path, fourcc, video_fps, (854, 480))
-    video_writer.write(small_frame)
+        
+    # Write the CLEAN frame to the video, so it has no bounding boxes/labels
+    clean_small_frame = cv2.resize(frame, (854, 480))
+    video_writer.write(clean_small_frame)
 
     if time.time() - current_segment_start >= video_segment_duration:
         video_writer.release()
