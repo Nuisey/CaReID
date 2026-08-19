@@ -75,11 +75,11 @@ flowchart TD
 A YOLO model detects and tracks vehicles in real-time from a live camera feed. By analyzing their vertical coordinate trajectories, the system determines arrival or departure status and extracts a burst of cropped images of the vehicles.
 
 #### Classification
-**Ensemble Inference:** The cropped images are passed into a four-model ensemble consisting of:
-- A custom Siamese ReID (Re-Identification) model
-- A custom Convolutional Neural Network (CNN)
-- A Vision Transformer (ViT)
-- A pre-trained CLIP model with a linear probe
+**Multi-Architecture Ensemble Inference:** Instead of relying on a single paradigm, the system ensures high accuracy by routing cropped images through a four-model ensemble, with each model offering a unique representational strength:
+- **Siamese ReID:** Specialized in fine-grained vehicle matching and tracking.
+- **Custom CNN:** Extracts strong, localized texture and spatial features.
+- **Vision Transformer (ViT):** Captures global context and structural patterns using self-attention.
+- **OpenAI CLIP:** Provides foundational semantic understanding via vision-language embeddings.
 
  **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
 
