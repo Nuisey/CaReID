@@ -1,6 +1,7 @@
 param (
     [ValidateSet("start", "stop", "restart")]
-    [string]$Action = "start"
+    [string]$Action = "start",
+    [string]$VideoPath = "Demo/Demo files/best5min.mp4"
 )
 
 $ProjectDirectory = "C:\Users\nolan\OneDrive\Programming\CarID_Final"
@@ -19,14 +20,19 @@ function Stop-System {
 }
 
 function Start-System {
-    Write-Host "Starting CarID System..." -ForegroundColor Yellow
+    Write-Host "Starting CarID System (Demo Version)..." -ForegroundColor Yellow
     
+    if (-not (Test-Path $VideoPath)) {
+        Write-Host "Error: Video file not found at $VideoPath" -ForegroundColor Red
+        return
+    }
+
     # We use -NoExit so that if a script crashes, the window stays open for you to read the error!
     Write-Host "Starting YOLO Tracker..."
-    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python YOLO_Identification.py`""
+    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python YOLO_Identification.py --video '$VideoPath'`""
 
     Write-Host "Starting ReID Inference..."
-    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder --processed_folder Data/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
+    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder demo/HotFolder --processed_folder demo/Unconfirmed --log_csv demo/CarLabels_Unprocessed.csv`""
 
     Write-Host "Starting Flask Web App..."
     Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python app.py`""

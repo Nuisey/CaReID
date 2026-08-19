@@ -6,6 +6,12 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
 import threading
+import argparse
+import numpy as np
+
+parser = argparse.ArgumentParser(description="Run YOLO Identification in demo mode on a video file")
+parser.add_argument("--video", type=str, required=True, help="Path to video file")
+args = parser.parse_args()
 
 latest_buffer = None
 
@@ -25,13 +31,13 @@ threading.Thread(target=frame_sender, daemon=True).start()
 # Format: {track_id: {'first_seen_time': timestamp, 'last_save_time': timestamp, 'y_history': []}}
 track_history = {}
 
-# data setup
-SAVE_DIR = "HotFolder"
-os.makedirs(SAVE_DIR, exist_ok=True)
-
 import shutil
 DEMO_DIR = "demo"
 os.makedirs(DEMO_DIR, exist_ok=True)
+
+# data setup
+SAVE_DIR = os.path.join(DEMO_DIR, "HotFolder")
+os.makedirs(SAVE_DIR, exist_ok=True)
 
 # Demo video variables
 video_segment_duration = 300  # 5 minutes
@@ -39,17 +45,16 @@ current_segment_start = time.time()
 current_segment_car_ids = set()
 highest_car_count = 0
 video_writer = None
-temp_video_path = "temp_demo_segment.mp4"
+temp_video_path = os.path.join(DEMO_DIR, "temp_demo_segment.mp4")
 video_fps = 30.0
 
 # load model
 model = YOLO("yolo11m.pt") 
 
 # video source
-liveCamera = 0 
-cap = cv2.VideoCapture(liveCamera)
+cap = cv2.VideoCapture(args.video)
 
-# try to set camera to 4k
+# try to set camera to 4k (doesn't really do anything for video file but we can leave it or remove it)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
 
@@ -58,8 +63,25 @@ if cam_fps and cam_fps > 0:
     video_fps = cam_fps
 
 # configure window
-main_window_name = "Car Identification"
+main_window_name = "Car Identification (DEMO MODE)"
 cv2.namedWindow(main_window_name, cv2.WINDOW_NORMAL)
+
+# Wait for AI models to load
+print("Waiting for AI models to finish loading...")
+while not os.path.exists("ai_ready.txt"):
+    # Create a blank waiting frame
+    waiting_frame = np.zeros((480, 854, 3), dtype=np.uint8)
+    cv2.putText(waiting_frame, "WAITING FOR AI MODELS TO LOAD (~2 mins)...", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    cv2.imshow(main_window_name, waiting_frame)
+    
+    # Send waiting frame to Flask Dashboard so the UI updates
+    success_encode, buffer = cv2.imencode('.jpg', waiting_frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+    if success_encode:
+        latest_buffer = buffer.tobytes()
+        
+    if cv2.waitKey(1000) & 0xFF == ord('q'):
+        break
+print("AI models loaded! Starting video playback.")
 
 # Track program start time so we can skip initial detections
 program_start_time = time.time()
@@ -132,8 +154,7 @@ while cap.isOpened():
                         time_since_last_save = current_time - track_history[track_id]['last_save_time']
 
                         if (
-                            current_time - program_start_time >= 20
-                            and duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
+                            duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
                             and duration_in_frame < 15
                             and time_since_last_save >= 1
                         ):
@@ -205,7 +226,14 @@ while cap.isOpened():
         current_segment_car_ids = set()
     # ------------------------------------
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    # Enforce real-time playback speed
+    processing_time = time.perf_counter() - start
+    expected_time = 1.0 / video_fps
+    delay = 1
+    if expected_time > processing_time:
+        delay = max(1, int((expected_time - processing_time) * 1000))
+
+    if cv2.waitKey(delay) & 0xFF == ord('q'):
         break
 
 cap.release()
