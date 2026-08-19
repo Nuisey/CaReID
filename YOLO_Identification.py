@@ -113,7 +113,7 @@ while cap.isOpened():
 
 
     # input frame into model
-    results = model.track(frame, persist=True, verbose=False)
+    results = model.track(frame, persist=True, verbose=False, conf=0.5)
     annotated_frame = results[0].plot(font_size=0.3, line_width=2)
 
     if results[0].boxes.id is not None:
