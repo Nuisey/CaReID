@@ -37,24 +37,24 @@ flowchart TD
         E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
         I -->|Valid Votes| J{Consensus Voting}
         
-        J -- ">= 3 Models Agree" --> K[Folder: Unsynced]
-        J -- "Exactly 2 Models Agree" --> L[Folder: Unconfirmed]
+        J -- ">= 3 Models Agree" --> S
+        J -- "Exactly 2 Models Agree" --> P
         J -- "< 2 Agree (Unseen)" --> M[Folder: Unseen\nLabel: Unseen Car]
     end
 
     subgraph Background Verification
-        L -->|Burst of Images| P[Gemini Vision LLM]
+        P[Gemini Vision LLM]
         P -->|Agrees with local prediction?| Q{Match?}
-        Q -- Yes --> K
+        Q -- Yes --> S
     end
   
     subgraph Flask Web Dashboard
+        S[Mass Labeling UI]
         J --> O[Update Local Web Dashboard]
         
         Q -- No --> R[Manual Review UI]
-        R -- User Approves --> K
+        R -- User Approves --> S
         
-        K --> S[Mass Labeling UI]
         S --> T[Folder: Gallery]
     end
 
