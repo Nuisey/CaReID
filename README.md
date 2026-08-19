@@ -73,7 +73,7 @@ flowchart TD
     end
   
     subgraph Flask Web Dashboard
-        K & L & M --> O[Update Local Web Dashboard]
+        J --> O[Update Local Web Dashboard]
         
         Q -- No --> R[Manual Review UI]
         R -- User Approves --> K
