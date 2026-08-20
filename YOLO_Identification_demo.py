@@ -38,15 +38,7 @@ import shutil
 DEMO_DIR = "demo"
 os.makedirs(DEMO_DIR, exist_ok=True)
 
-# Demo video variables
-video_segment_duration = 300  # 5 minutes
-current_segment_start = time.time()
-current_segment_car_ids = set()
-highest_car_count = 0
-video_writer = None
-temp_video_path = "temp_demo_segment.mp4"
 video_fps = 30.0
-
 # load model
 model = YOLO("yolo11m.pt") 
 
@@ -169,7 +161,6 @@ while cap.isOpened():
 
                             # SOLUTION: Only save if the car is actively moving! (Ignores parked cars)
                             if direction != "unknown":
-                                current_segment_car_ids.add(track_id)
                                 track_history[track_id]['last_save_time'] = current_time
                                 
                                 cropped_vehicle = frame[y1:y2, x1:x2]
@@ -196,29 +187,6 @@ while cap.isOpened():
     if success_encode:
         latest_buffer = buffer.tobytes()
 
-    # --- Busiest 5-minute video logic ---
-    if video_writer is None:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video_writer = cv2.VideoWriter(temp_video_path, fourcc, video_fps, (854, 480))
-    video_writer.write(small_frame)
-
-    if time.time() - current_segment_start >= video_segment_duration:
-        video_writer.release()
-        video_writer = None
-        
-        target_video_path = os.path.join(DEMO_DIR, "busiest_5min.mp4")
-        if not os.path.exists(target_video_path):
-            highest_car_count = -1  # Force save if the file was moved/deleted
-            
-        if len(current_segment_car_ids) > highest_car_count:
-            highest_car_count = len(current_segment_car_ids)
-            shutil.copy(temp_video_path, target_video_path)
-            print(f"*** New Busiest 5-Minute Interval Found! ({highest_car_count} cars) - Saved to demo/busiest_5min.mp4 ***")
-            
-        current_segment_start = time.time()
-        current_segment_car_ids = set()
-    # ------------------------------------
-
     # Enforce real-time playback speed
     processing_time = time.perf_counter() - start
     expected_time = 1.0 / video_fps
@@ -230,7 +198,5 @@ while cap.isOpened():
         break
 
 cap.release()
-if video_writer is not None:
-    video_writer.release()
 cv2.destroyAllWindows()
 print(f"Program finished. Images are saved in the '{SAVE_DIR}' folder.")
