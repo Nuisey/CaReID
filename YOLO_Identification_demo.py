@@ -143,7 +143,7 @@ while cap.isOpened():
                         time_since_last_save = current_time - track_history[track_id]['last_save_time']
 
                         if (
-                            current_time - program_start_time >= 20
+                            True # No warm-up delay needed for demo video
                             and duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
                             and duration_in_frame < 15
                             and time_since_last_save >= 1
