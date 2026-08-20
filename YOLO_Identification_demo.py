@@ -129,76 +129,57 @@ while cap.isOpened():
                 box_center_x = (x1 + x2) // 2
                 box_center_y = (y1 + y2) // 2
                 
-                class_name = model.names[cls]
-                
-                if class_name in ['car', 'truck', 'bus']:
-                    current_time = time.time()
+                if rule_of_thirds_left_boundary < box_center_x < rule_of_thirds_right_boundary:
+                    class_name = model.names[cls]
                     
-                    if track_id not in track_history:
-                        track_history[track_id] = {
-                            'first_seen_time': current_time,
-                            'last_save_time': 0,
-                            'y_history': [],
-                            'x_history': []
-                        }
-                    
-                    # Store X, Y, W, H coordinates to detect ANY movement or scaling
-                    track_history[track_id]['y_history'].append(box_center_y)
-                    track_history[track_id]['x_history'].append(box_center_x)
-                    
-                    w = x2 - x1
-                    h = y2 - y1
-                    if 'w_history' not in track_history[track_id]:
-                        track_history[track_id]['w_history'] = []
-                        track_history[track_id]['h_history'] = []
-                    track_history[track_id]['w_history'].append(w)
-                    track_history[track_id]['h_history'].append(h)
-                    
-                    if len(track_history[track_id]['y_history']) > 30:
-                        track_history[track_id]['y_history'].pop(0)
-                        track_history[track_id]['x_history'].pop(0)
-                        track_history[track_id]['w_history'].pop(0)
-                        track_history[track_id]['h_history'].pop(0)
+                    if class_name in ['car', 'truck', 'bus']:
+                        current_time = time.time()
+                        
+                        if track_id not in track_history:
+                            track_history[track_id] = {
+                                'first_seen_time': current_time,
+                                'last_save_time': 0,
+                                'y_history': []
+                            }
+                        
+                        # Store Y coordinate to detect direction
+                        track_history[track_id]['y_history'].append(box_center_y)
+                        if len(track_history[track_id]['y_history']) > 30:
+                            track_history[track_id]['y_history'].pop(0)
 
-                    time_since_last_save = current_time - track_history[track_id]['last_save_time']
+                        duration_in_frame = current_time - track_history[track_id]['first_seen_time']
+                        time_since_last_save = current_time - track_history[track_id]['last_save_time']
 
-                    if time_since_last_save >= 0.2:
-                        
-                        y_hist = track_history[track_id]['y_history']
-                        x_hist = track_history[track_id]['x_history']
-                        w_hist = track_history[track_id]['w_history']
-                        h_hist = track_history[track_id]['h_history']
-                        
-                        direction = "unknown"
-                        
-                        if len(y_hist) >= 5:
-                            dy = y_hist[-1] - y_hist[0]
-                            dx = x_hist[-1] - x_hist[0]
-                            dw = w_hist[-1] - w_hist[0]
-                            dh = h_hist[-1] - h_hist[0]
+                        if (
+                            current_time - program_start_time >= 20
+                            and duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
+                            and duration_in_frame < 15
+                            and time_since_last_save >= 1
+                        ):
                             
-                            # A car is moving if its center changes by > 3 pixels OR its size changes by > 3 pixels
-                            if abs(dy) > 3 or abs(dx) > 3 or abs(dw) > 3 or abs(dh) > 3:
-                                if dy > 3:
-                                    direction = "arriving"
-                                elif dy < -3:
-                                    direction = "leaving"
-                                else:
-                                    direction = "moving"
-                        
-                        if direction != "unknown":
-                            current_segment_car_ids.add(track_id)
-                            track_history[track_id]['last_save_time'] = current_time
-                            
-                            cropped_vehicle = frame[y1:y2, x1:x2]
+                            # Determine Direction (Arriving vs Leaving)
+                            y_hist = track_history[track_id]['y_history']
+                            direction = "unknown"
+                            if len(y_hist) >= 5:
+                                dy = y_hist[-1] - y_hist[0]
+                                if dy > 10:
+                                    direction = "arriving" # moving downward
+                                elif dy < -10:
+                                    direction = "leaving"  # moving upward
 
-                            if cropped_vehicle.size > 0:
-                                timestamp = datetime.now(ZoneInfo("America/New_York")).strftime('%Y-%m-%d_%H-%M-%S-%f')
-                                filename = f"{timestamp}__{direction}__track{track_id}__{class_name}.jpg"
-                                save_path = os.path.join(SAVE_DIR, filename)
-                                cv2.imwrite(save_path, cropped_vehicle)
-                                print(f"Saved: {class_name} ID: {track_id} | Dir: {direction}")
+                            # SOLUTION: Only save if the car is actively moving! (Ignores parked cars)
+                            if direction != "unknown":
+                                current_segment_car_ids.add(track_id)
+                                track_history[track_id]['last_save_time'] = current_time
+                                
+                                cropped_vehicle = frame[y1:y2, x1:x2]
 
+                                if cropped_vehicle.size > 0:
+                                    timestamp = datetime.now(ZoneInfo("America/New_York")).strftime('%Y-%m-%d_%H-%M-%S-%f')
+                                    filename = f"{timestamp}__{direction}__track{track_id}__{class_name}.jpg"
+                                    save_path = os.path.join(SAVE_DIR, filename)
+                                    cv2.imwrite(save_path, cropped_vehicle)
+                                    print(f"Saved: {class_name} ID: {track_id} | Dir: {direction} | Duration: {duration_in_frame:.1f}s")
         # Clean up old tracks
         obsolete_ids = set(track_history.keys()) - current_frame_track_ids
         for t_id in obsolete_ids:
