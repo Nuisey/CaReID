@@ -240,9 +240,13 @@ class NewImageHandler(FileSystemEventHandler):
             final_label = best_label
             target_folder = self.processed_folder_path # Unconfirmed
         else:
-            final_label = "Unseen Car"
-            target_folder = os.path.join(data_dir, "Unseen")
-            predicted_id = "Unseen"
+            if confidence > 0.65 and natural_label and natural_label != "Unknown":
+                final_label = natural_label
+                target_folder = self.processed_folder_path # Unconfirmed
+            else:
+                final_label = "Unseen Car"
+                target_folder = os.path.join(data_dir, "Unseen")
+                predicted_id = "Unseen"
             
         os.makedirs(target_folder, exist_ok=True)
 
