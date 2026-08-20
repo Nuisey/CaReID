@@ -71,11 +71,11 @@ flowchart TD
 # Method and Results
 
 
-### Detection & Tracking:
+## Detection & Tracking:
 A pre-trained YOLO model detects and tracks vehicles in real-time from a live camera feed. It extracts a burst of cropped images of the vehicle that passes and by analyzing their vertical coordinate trajectories, the system determines arrival or departure status.
 <br>
 
-### Classification
+## Classification
 **Ensemble Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
 - **Siamese ReID** - Specialized in fine-grained vehicle matching and tracking.
 - **Custom CNN:** Extracts strong, localized texture and spatial features.
@@ -85,7 +85,7 @@ A pre-trained YOLO model detects and tracks vehicles in real-time from a live ca
  **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
 <br>
 
-### Labeling
+## Labeling
 Labeling mass amounts of data was the most challenging part of this project. In order to make the process more efficient, I implemented:
  
  **Intelligent Routing**
