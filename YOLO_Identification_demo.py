@@ -116,7 +116,7 @@ while cap.isOpened():
         for box, track_id, conf, cls in zip(boxes, track_ids, confs, clss):
             current_frame_track_ids.add(track_id)
             
-            if conf > 0.75:
+            if conf > 0.55:
                 x1, y1, x2, y2 = map(int, box)
                 box_center_x = (x1 + x2) // 2
                 box_center_y = (y1 + y2) // 2
