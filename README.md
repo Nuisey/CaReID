@@ -1,7 +1,7 @@
 # CarReID
 **Abstract:** CarReID is a local computer vision system that identifies, tracks, and logs neighborhood vehicles using a combination of object detection and classification models. The purpose is to provide awareness of vehicle movements within an area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color. The data is compiled and visualized on a secure, interactive local web dashboard.
 
-<video src="https://raw.githubusercontent.com/Nuisey/CaReID/master/Demo/Demo%20files/CarReID_20sec_Demo.mp4" controls="controls" muted="muted" width="100%"></video>
+[![CarReID Demo](Demo/Demo%20files/carReid_SS.png)](https://youtu.be/33Xn2gOIp1w)
 
 ---
 # Motivation
