@@ -21,23 +21,36 @@ On a personal level, this project gave me the opportunity to overcome a few chal
 # Visual Architecture
 
 ```mermaid
-
 flowchart TD
 
     subgraph Edge Processing
-        A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
-        B -->|Tracks Trajectory| C{Arrival or Departure?}
-        B -->|Crops Vehicle| D[Image Preprocessing]
-  
-        D --> E[ResNet ReID Model]
-        D --> F[CNN Model]
-        D --> G[ViT Model]
-        D --> H[CLIP Model]
-  
-        E & F & G & H -->|"Label & Confidence"| I("Threshold Filter >= 80%")
-        I -->|"Valid Votes"| J{Consensus Voting}
-        
+        A[Live Camera Feed]
+        B(YOLO Object Tracking)
+        C{Arrival or Departure?}
+        D[Image Preprocessing]
+        E[ResNet ReID Model]
+        F[CNN Model]
+        G[ViT Model]
+        H[CLIP Model]
+        I("Threshold Filter >= 80%")
+        J{Consensus Voting}
         M["Folder: Unseen<br>Label: Unseen Car"]
+
+        A -->|Video Frames| B
+        B -->|Tracks Trajectory| C
+        B -->|Crops Vehicle| D
+  
+        D --> E
+        D --> F
+        D --> G
+        D --> H
+  
+        E -->|"Label & Confidence"| I
+        F --> I
+        G --> I
+        H --> I
+        
+        I -->|"Valid Votes"| J
     end
 
     subgraph Background Verification
@@ -55,15 +68,15 @@ flowchart TD
     J -->|">= 3 Models Agree"| S
     J -->|"Exactly 2 Models Agree"| P
     J -->|"< 2 Agree (Unseen)"| M
+    J --> O
     
     P -->|"Agrees with local prediction?"| Q
-    Q -->|"Yes"| S
     
-    J --> O
+    Q -->|"Yes"| S
     Q -->|"No"| R
+    
     R -->|"User Approves"| S
     S --> T
-
 ```
 
 ---
