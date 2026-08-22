@@ -1,8 +1,8 @@
 # Title and Abstract
 
-**Title:** CaReID: Real-Time Multi-Modal Vehicle Tracking and Identification System
+**Title:** CarReID: Real-Time Multi-Modal Vehicle Tracking and Identification System
 
-**Abstract:** CaReID is an edge-based computer vision system that automatically tracks, identifies, and logs neighborhood vehicles using an ensemble of deep learning models. The project's purpose is to provide real-time situational awareness of vehicle movements (arrivals and departures) within a localized area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color, presenting the data on a secure, interactive local web dashboard.
+**Abstract:** CarReID is an edge-based computer vision system that automatically tracks, identifies, and logs neighborhood vehicles using an ensemble of deep learning models. The project's purpose is to provide real-time situational awareness of vehicle movements (arrivals and departures) within a localized area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color, presenting the data on a secure, interactive local web dashboard.
 
 ---
 
