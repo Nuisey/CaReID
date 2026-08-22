@@ -23,32 +23,25 @@ On a personal level, this project gave me the opportunity to overcome a few chal
 ```mermaid
 flowchart TD
 
-    subgraph Edge Processing
-        A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
-        B -->|Tracks Trajectory| C{Arrival or Departure?}
-        B -->|Crops Vehicle| D[Image Preprocessing]
-  
-        D --> E[ResNet ReID Model]
-        D --> F[CNN Model]
-        D --> G[ViT Model]
-        D --> H[CLIP Model]
-  
-        E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
-    end
+    A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
+    B -->|Tracks Trajectory| C{Arrival or Departure?}
+    B -->|Crops Vehicle| D[Image Preprocessing]
 
+    D --> E[ResNet ReID Model]
+    D --> F[CNN Model]
+    D --> G[ViT Model]
+    D --> H[CLIP Model]
+
+    E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
     I -->|Valid Votes| J{Consensus Voting}
+    
+    P[AI Vision Verification]
+    Q{Match?}
 
-    subgraph Background Verification
-        P[AI Vision Verification]
-        Q{Match?}
-    end
-  
-    subgraph Flask Web Dashboard
-        O[Update Local Web Dashboard]
-        R[Manual Review UI]
-        S[Mass Labeling UI]
-        T[Folder: Gallery]
-    end
+    O[Update Local Web Dashboard]
+    R[Manual Review UI]
+    S[Mass Labeling UI]
+    T[Folder: Gallery]
 
     J -- ">= 3 Models Agree" --> S
     J -- "Two or less models agree" --> P
