@@ -22,38 +22,30 @@ On a personal level, this project gave me the opportunity to overcome a few chal
 
 ```mermaid
 flowchart TD
+    %% cache-buster: v2
 
-    subgraph Edge Processing
-        A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
-        B -->|Tracks Trajectory| C{Arrival or Departure?}
-        B -->|Crops Vehicle| D[Image Preprocessing]
-  
-        D --> E[ResNet ReID Model]
-        D --> F[CNN Model]
-        D --> G[ViT Model]
-        D --> H[CLIP Model]
-  
-        E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
-        I -->|Valid Votes| J{Consensus Voting}
-        
-        M[Folder: Unseen\nLabel: Unseen Car]
-    end
+    A[Live Camera Feed] -->|Video Frames| B(YOLO Object Tracking)
+    B -->|Tracks Trajectory| C{Arrival or Departure?}
+    B -->|Crops Vehicle| D[Image Preprocessing]
 
-    subgraph Background Verification
-        P[AI Vision Verification]
-        Q{Match?}
-    end
-  
-    subgraph Flask Web Dashboard
-        O[Update Local Web Dashboard]
-        R[Manual Review UI]
-        S[Mass Labeling UI]
-        T[Folder: Gallery]
-    end
+    D --> E[ResNet ReID Model]
+    D --> F[CNN Model]
+    D --> G[ViT Model]
+    D --> H[CLIP Model]
+
+    E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
+    I -->|Valid Votes| J{Consensus Voting}
+    
+    P[AI Vision Verification]
+    Q{Match?}
+
+    O[Update Local Web Dashboard]
+    R[Manual Review UI]
+    S[Mass Labeling UI]
+    T[Folder: Gallery]
 
     J -- ">= 3 Models Agree" --> S
-    J -- "Exactly 2 Models Agree" --> P
-    J -- "< 2 Agree (Unseen)" --> M
+    J -- "<= 2 Models Agree" --> P
     
     P -->|Agrees with local prediction?| Q
     Q -- Yes --> S
@@ -89,8 +81,7 @@ Labeling mass amounts of data was the most challenging part of this project. In 
  **Intelligent Routing**
   Based on the consensus, the system routes the images to different confidence tiers:
  - **>= 3 votes:** High confidence (sent to `Bulk Labeling` for immediate logging).
- - **Exactly 2 votes:** Medium confidence (sent to `AI Vision Verification`).
- - **< 2 votes:** Low confidence or completely new vehicle (flagged as `Unseen Car`).
+ - **<= 2 votes:** Medium or low confidence (sent to `AI Vision Verification`).
 <br>
 
  **Bulk Labeling**
@@ -98,7 +89,7 @@ Labeling mass amounts of data was the most challenging part of this project. In 
  ![Alt Text](image-2.png)
 <br>
 
-**AI Vision Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles that got `Exactly 2 votes`. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
+**AI Vision Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles that got `<= 2 votes`. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
 <p align="center">
   <img src="image.png" width="45%" />
   <img src="image-1.png" width="51%" />
