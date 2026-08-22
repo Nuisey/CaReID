@@ -23,6 +23,17 @@ function Stop-System {
 function Start-System {
     Write-Host "Starting CarID Demo System..." -ForegroundColor Yellow
     
+    Write-Host "Clearing activity feed and old demo images..." -ForegroundColor Cyan
+    if (Test-Path "Data\CarLabels_Unprocessed.csv") {
+        Set-Content -Path "Data\CarLabels_Unprocessed.csv" -Value "filename,direction,predicted_label,ID,confidence,track_id,cnn_guess,vit_guess,clip_guess,resnet_guess"
+    }
+    if (Test-Path "Data\Demo_Output\Unconfirmed") {
+        Remove-Item -Path "Data\Demo_Output\Unconfirmed\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-Path "HotFolder_Demo") {
+        Remove-Item -Path "HotFolder_Demo\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     if (-not (Test-Path $VideoPath)) {
         Write-Host "Error: Video file not found at $VideoPath" -ForegroundColor Red
         return
@@ -37,6 +48,9 @@ function Start-System {
 
     Write-Host "Starting ReID Inference..."
     Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder_Demo --processed_folder Data/Demo_Output/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
+
+    Write-Host "Resetting map state for demo..." -ForegroundColor Cyan
+    python reset_demo_state.py
 
     Write-Host "Starting Flask Web App..."
     Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python app.py`""

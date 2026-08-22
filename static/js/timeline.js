@@ -47,7 +47,7 @@ async function loadFeed() {
     const reversedData = [...data].reverse();
     
     reversedData.forEach(item => {
-        const eventId = `${item.id}-${item.direction}`;
+        const eventId = item.filename;
         if (!loggedEventIds.has(eventId)) {
             loggedEventIds.add(eventId);
             

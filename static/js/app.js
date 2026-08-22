@@ -70,6 +70,24 @@ function renderHouses() {
             }
         });
         ro.observe(hDiv);
+
+        // Delete button
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '×';
+        delBtn.className = 'delete-box-btn';
+        delBtn.title = 'Delete Box';
+        delBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+        });
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm('Delete this box?')) {
+                houses.splice(hIndex, 1);
+                saveState();
+                renderHouses();
+            }
+        });
+        hDiv.appendChild(delBtn);
         
         // Drag functionality
         hDiv.addEventListener('mousedown', (e) => {
@@ -88,7 +106,12 @@ function renderHouses() {
         house.cars.forEach((car, cIndex) => {
             const cDiv = document.createElement('div');
             cDiv.className = 'car-icon';
-            cDiv.textContent = car.assigned_reid_id ? car.assigned_reid_id : '?';
+            if (car.assigned_reid_id) {
+                const lblObj = availableLabels.find(l => l.id == car.assigned_reid_id);
+                cDiv.textContent = lblObj ? lblObj.label : car.assigned_reid_id;
+            } else {
+                cDiv.textContent = '?';
+            }
             
             // Check status
             if (car.assigned_reid_id && carStatus[car.assigned_reid_id] === 'home') {

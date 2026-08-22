@@ -343,8 +343,9 @@ def get_timeline_feed():
                     
                     same_track = (past_track == curr_track)
                     same_gemini = (past_gemini and curr_gemini and past_gemini == curr_gemini and time_diff <= 30)
+                    same_reid = (past_event.get("predicted_label") and past_event.get("predicted_label") != "Unseen" and past_event.get("predicted_label") == event.get("predicted_label") and time_diff <= 30)
                         
-                    if (same_track or same_gemini) and past_event["direction"] == event["direction"]:
+                    if (same_track or same_gemini or same_reid) and past_event["direction"] == event["direction"]:
                         is_burst = True
                         past_event["burst_images"].append(filename)
                         if curr_primary not in past_event["all_track_ids"]:

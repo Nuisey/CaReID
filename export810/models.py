@@ -34,7 +34,7 @@ class ArcFaceModel(nn.Module):
 class CLIPFineTuner(nn.Module):
     def __init__(self, num_classes, model_name="openai/clip-vit-large-patch14"):
         super(CLIPFineTuner, self).__init__()
-        clip = CLIPModel.from_pretrained(model_name)
+        clip = CLIPModel.from_pretrained(model_name, local_files_only=True)
         self.vision_model = clip.vision_model
         in_features = self.vision_model.post_layernorm.normalized_shape[0]
         self.arcface = ArcFace(in_features, num_classes)
@@ -47,7 +47,7 @@ class CLIPFineTuner(nn.Module):
 class ViTArcFaceModel(nn.Module):
     def __init__(self, num_classes, model_name="google/vit-base-patch16-224-in21k"):
         super(ViTArcFaceModel, self).__init__()
-        self.backbone = ViTModel.from_pretrained(model_name)
+        self.backbone = ViTModel.from_pretrained(model_name, local_files_only=True)
         peft_config = LoraConfig(
             r=64,
             lora_alpha=64,
@@ -77,12 +77,12 @@ def load_testing_models(device):
     clip = CLIPFineTuner(num_classes)
     clip.load_state_dict(torch.load('export810/best_clip_finetune_model.pth', map_location='cpu'), strict=False)
     clip.to(device).eval()
-    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14", local_files_only=True)
     
     # ViT
     vit = ViTArcFaceModel(num_classes)
     vit.load_state_dict(torch.load('export810/best_vit_lora_model.pth', map_location='cpu'), strict=False)
     vit.to(device).eval()
-    vit_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
+    vit_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k", local_files_only=True)
     
     return cnn, clip, clip_processor, vit, vit_processor

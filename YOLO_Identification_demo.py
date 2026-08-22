@@ -22,7 +22,7 @@ def frame_sender():
                 requests.post('http://127.0.0.1:5000/api/push_frame', data=latest_buffer, timeout=1.0)
             except:
                 pass
-        time.sleep(0.05)
+        time.sleep(0.15)
 
 threading.Thread(target=frame_sender, daemon=True).start()
 
@@ -102,7 +102,7 @@ while cap.isOpened():
 
 
     # input frame into model
-    results = model.track(frame, persist=True, verbose=False)
+    results = model.track(frame, persist=True, verbose=False, tracker="custom_tracker.yaml")
     annotated_frame = results[0].plot(font_size=0.3, line_width=2)
 
     if results[0].boxes.id is not None:
@@ -116,7 +116,7 @@ while cap.isOpened():
         for box, track_id, conf, cls in zip(boxes, track_ids, confs, clss):
             current_frame_track_ids.add(track_id)
             
-            if conf > 0.55:
+            if True:
                 x1, y1, x2, y2 = map(int, box)
                 box_center_x = (x1 + x2) // 2
                 box_center_y = (y1 + y2) // 2
@@ -136,16 +136,15 @@ while cap.isOpened():
                         
                         # Store Y coordinate to detect direction
                         track_history[track_id]['y_history'].append(box_center_y)
-                        if len(track_history[track_id]['y_history']) > 30:
+                        if len(track_history[track_id]['y_history']) > 150:
                             track_history[track_id]['y_history'].pop(0)
 
                         duration_in_frame = current_time - track_history[track_id]['first_seen_time']
                         time_since_last_save = current_time - track_history[track_id]['last_save_time']
 
                         if (
-                            True # No warm-up delay needed for demo video
+                            conf > 0.55 # Only take picture if high confidence
                             and duration_in_frame >= 2.0  # Wait 2 seconds before taking the first picture
-                            and duration_in_frame < 15
                             and time_since_last_save >= 1
                         ):
                             

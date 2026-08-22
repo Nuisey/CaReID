@@ -23,48 +23,46 @@ On a personal level, this project gave me the opportunity to overcome a few chal
 ```mermaid
 flowchart TD
 
-    subgraph Edge Processing
-        A[Live Camera Feed]
-        B(YOLO Object Tracking)
-        C{Arrival or Departure?}
-        D[Image Preprocessing]
-        E[ResNet ReID Model]
-        F[CNN Model]
-        G[ViT Model]
-        H[CLIP Model]
-        I("Threshold Filter >= 80%")
-        J{Consensus Voting}
-        M["Folder: Unseen<br>Label: Unseen Car"]
+    %% Edge Processing
+    A[Live Camera Feed]
+    B(YOLO Object Tracking)
+    C{Arrival or Departure?}
+    D[Image Preprocessing]
+    E[ResNet ReID Model]
+    F[CNN Model]
+    G[ViT Model]
+    H[CLIP Model]
+    I("Threshold Filter >= 80%")
+    J{Consensus Voting}
+    M["Folder: Unseen<br>Label: Unseen Car"]
 
-        A -->|Video Frames| B
-        B -->|Tracks Trajectory| C
-        B -->|Crops Vehicle| D
+    A -->|Video Frames| B
+    B -->|Tracks Trajectory| C
+    B -->|Crops Vehicle| D
   
-        D --> E
-        D --> F
-        D --> G
-        D --> H
+    D --> E
+    D --> F
+    D --> G
+    D --> H
   
-        E -->|"Label & Confidence"| I
-        F --> I
-        G --> I
-        H --> I
-        
-        I -->|"Valid Votes"| J
-    end
+    E -->|"Label & Confidence"| I
+    F --> I
+    G --> I
+    H --> I
+    
+    I -->|"Valid Votes"| J
 
-    subgraph Background Verification
-        P[AI Vision Verification]
-        Q{Match?}
-    end
-  
-    subgraph Flask Web Dashboard
-        O[Update Local Web Dashboard]
-        R[Manual Review UI]
-        S[Mass Labeling UI]
-        T[Folder: Gallery]
-    end
+    %% Background Verification
+    P[AI Vision Verification]
+    Q{Match?}
 
+    %% Flask Web Dashboard
+    O[Update Local Web Dashboard]
+    R[Manual Review UI]
+    S[Mass Labeling UI]
+    T[Folder: Gallery]
+
+    %% Cross-component routing
     J -->|">= 3 Models Agree"| S
     J -->|"Exactly 2 Models Agree"| P
     J -->|"< 2 Agree (Unseen)"| M

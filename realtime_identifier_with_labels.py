@@ -248,6 +248,7 @@ class NewImageHandler(FileSystemEventHandler):
                 target_folder = os.path.join(data_dir, "Unseen")
                 predicted_id = "Unseen"
             
+        print(f"  -> Final Label Assigned: {final_label}")
         os.makedirs(target_folder, exist_ok=True)
 
         new_filename = f"{parts[0]}__{direction}__{track_id}__{final_label.replace(' ', '_')}__{confidence:.4f}.jpg"
@@ -322,7 +323,8 @@ if __name__ == "__main__":
     gallery_dataset = ImageDataset(opt.data_dir, gallery_df, "id", transform=data_transforms)
     gallery_loader = torch.utils.data.DataLoader(gallery_dataset, batch_size=32, shuffle=False)
     
-    gallery_features, gallery_labels = extract_feature(model, gallery_loader, device)
+    gallery_features, gallery_labels_idx = extract_feature(model, gallery_loader, device)
+    gallery_labels = [gallery_dataset.classes[int(idx)] for idx in gallery_labels_idx]
     gallery_features = gallery_features.to(device)
 
     csv_lock = Lock()
