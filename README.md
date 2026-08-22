@@ -34,8 +34,9 @@ flowchart TD
         D --> H[CLIP Model]
   
         E & F & G & H -->|Label & Confidence| I(Threshold Filter >= 80%)
-        I -->|Valid Votes| J{Consensus Voting}
     end
+
+    I -->|Valid Votes| J{Consensus Voting}
 
     subgraph Background Verification
         P[AI Vision Verification]
