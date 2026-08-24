@@ -1,5 +1,5 @@
 # CarReID
-(Warning: the README is still a work in process. Due to deadlines, certain sections are not elaborated on enough or in need of polishing. I am expecting to have a finished version by 8/27)
+(Warning: the README is still a work in process. Due to deadlines, certain sections are not elaborated on enough or in need of polishing. I am expecting to have a finished version by 8/26)
 
 **Abstract:** CarReID is a local computer vision system that identifies, tracks, and logs neighborhood vehicles using a combination of object detection and classification models. The purpose is to provide awareness of vehicle movements within an area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color. The data is compiled and visualized on a secure, interactive local web dashboard.
 
@@ -74,7 +74,7 @@ flowchart TD
 
 ---
 
-# Method and Results
+# Methods
 
 
 ## Detection & Tracking:
@@ -114,24 +114,33 @@ Labeling mass amounts of data was the most challenging part of this project. In 
 
 ---
 ## Model Training Strategies
-Because of the low-quality input data, standard classification techniques plateaued early. To overcome this, I iteratively trained and evaluated multiple architectures and loss functions:
 
-1. **ResNet-IBN (ReID Baseline):**
-   - **Strategy:** Based on the `regob/vehicle_reid` repository, I fine-tuned a pre-trained **ResNet50-IBN** (Instance-Batch Normalization) model. Unlike the subsequent architectures which struggled on this difficult dataset without metric learning, this backbone was robust enough to learn generalized vehicle features using just standard Cross-Entropy (ID) loss.
+1. **Embedding CNN**
+   - **Source:** This was the starting model, adapted from the `regob/vehicle_reid` repository (which is built upon a popular Person Re-Identification framework).
+   - **Architecture:** This model utilizes a **ResNet50-IBN** backbone. IBN is an architectural tweak that combines Instance Normalization and Batch Normalization. This makes the model focus on the shape of the object instead of the noise (like lighting or weather). Instead of a classification head, it preform a Distance-Based search to other example photos (within the gallery). When the system begins, it takes an embedding vector for every photo in the gallery. When an unknown car appears, it extracts an embedding vector and using Cosine Similarity, compares it to all the examples in the gallery. The closest vector to the target's is chosen, with however similar being the confidence score.
+   - **Training & Fine-Tuning:** The model was fine-tuned on the custom neighborhood dataset using standard Cross-Entropy (ID) loss over 40 epochs. It also involved Random Erasing, which erased square blocks at random, which forced the model to pay attention to the whole car instead of just memorizing certain features like the headlights.
 
-2. **EfficientNet-B0:** 
-   - **Strategy:** I started with standard classification on an EfficientNet-B0, but validation accuracy hovered around 65% even with unfreezing layers and data augmentations. I pivoted to treating the task as a Re-Identification (ReID) problem by applying the **ArcFace loss function** (which maximizes intra-class similarity and inter-class discrepancy), resulting in robust feature separation.
-   
-3. **CLIP (Contrastive Language-Image Pre-Training):**
-   - **Strategy:** Initial linear probing on frozen features gave a decent baseline of 61%. To push performance further, I fine-tuned the last 6 layers of the vision encoder and integrated the ArcFace loss, which successfully adapted CLIP's generalized embeddings to my specific low-res vehicle domain.
+2. **EfficientNet-B0**
+   - **Source:** Standard PyTorch/timm `EfficientNet-B0` architecture.
+   - **Architecture:** EfficientNet utilizes compound scaling and inverted bottleneck blocks (MBConv) to extract highly efficient, localized texture and spatial features (like wheel rims, grill meshes, and headlight shapes).
+   - **Training & Fine-Tuning:** Initial attempts at standard classification plateaued early (35-65% accuracy) due to the severe 130x80 pixel resolution data. The breakthrough occurred by treating it as a Re-Identification (ReID) problem via ArcFace loss function. ArcFace enforces a strict angular margin between classes in the latent space, maximizing intra-class similarity (same car looks similar) and inter-class discrepancy (pushing different cars further apart), resulting in highly accurate convergence.
 
-4. **Vision Transformers (ViT):**
-   - **Strategy:** Initial attempts using Parameter-Efficient Fine-Tuning (PEFT) with LoRA at a low rank (r=16) struggled to learn (19% accuracy). Success was achieved by increasing the LoRA rank/alpha (r=64) and coupling it with the ArcFace loss function.
+3. **Vision Transformer (ViT)**
+   - **Source:** A foundational Google Vision Transformer (`google/vit-base-patch16-224`) pulled from Hugging Face. 
+   - **Architecture:** This model completely abandons standard convolutional layers. Instead, it slices the image into a grid of 16x16 pixel patches, treats them as a sequence, and processes them through self-attention layers. This allows the model to look at the entire vehicle at once, capturing global context and structural layout rather than relying on localized textures.
+   - **Training & Fine-Tuning:** Due to the heavy nature of Transformers, it was fine-tuned using Parameter-Efficient Fine-Tuning (PEFT) via LoRA (Low-Rank Adaptation)**. Initial attempts at a low rank (r=16) struggled to learn (19% accuracy). Successful convergence was achieved by dramatically increasing the LoRA rank/alpha (r=64) and coupling it with the ArcFace loss function, forcing the global attention patterns to distinctly separate vehicle identities.
+
+4. **OpenAI CLIP**
+   - **Source:** Developed by OpenAI (`openai/clip-vit-base-patch32`) and pulled from Hugging Face.
+   - **Architecture:** Originally a dual-encoder model (Vision and Text) trained contrastively on hundreds of millions of image-text pairs across the internet. For this project, only the Vision Encoder (a patch-32 ViT) is utilized. Because of its text-aligned pre-training, its latent space is uniquely organized around human *semantic concepts* (e.g., "red", "sedan", "convertable") rather than pure pixel structures.
+   - **Training & Fine-Tuning:** Initial integration started with a "Linear Probe" approach—freezing the heavy foundational weights to preserve its generalized multimodal intelligence and training a lightweight Multi-Layer Perceptron (MLP) head on top. To push performance further on the low-resolution domain, the last 6 layers of the vision encoder were unfrozen and fine-tuned alongside the ArcFace loss function, mapping broad semantic concepts to specific neighborhood vehicle IDs.
 
 **Key Takeaway:** The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
 
 [![6 minute demo of the system](Demo/demo_thumbnail.jpg)](https://youtu.be/cz_V1ULSeiE)
 <p align="center"><i>Click photo to play full demo</i></p>
+
+# Results
 
 ## Challenges
 
@@ -143,6 +152,6 @@ The most significant hurdle in this project was dealing with the reality of edge
 Data privacy is the cornerstone of this neighborhood tracking system. Because the project monitors community vehicle movements, several strict ethical and security measures dictate its design:
 
 1. **Edge Computing:** All video processing, object detection, and model inference (YOLO, CNN, ViT, CLIP) are performed entirely on the local device. No raw video feeds or images are ever uploaded to the cloud or third-party servers.
-2. **Absence of PII Targeting:** The models are trained specifically to identify broad vehicle profiles rather than personally identifiable information. The system is not designed to read license plates or run facial recognition on drivers.
+2. **Absence of Personal Information:** The models are trained specifically to identify broad vehicle profiles rather than personally identifiable information. The system is not designed to read license plates or run facial recognition on drivers.
 3. **Local Access Control:** The interactive dashboard is hosted locally via Flask (`localhost`). This ensures that the traffic data remains isolated to the local network and is only accessible to authorized residents, preventing external monitoring or data scraping.
 
