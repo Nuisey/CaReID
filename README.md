@@ -113,6 +113,9 @@ Labeling mass amounts of data was the most challenging part of this project. In 
 
 ---
 ## Model Training Strategies
+
+[6 minute demo of the system](https://youtu.be/cz_V1ULSeiE)
+
 Because of the low-quality input data, standard classification techniques plateaued early. To overcome this, I iteratively trained and evaluated multiple architectures and loss functions:
 
 1. **Convolutional Neural Networks (CNN):** 
