@@ -135,7 +135,7 @@ Labeling mass amounts of data was the most challenging part of this project. In 
    - **Architecture:** Originally a dual-encoder model (Vision and Text) trained contrastively on hundreds of millions of image-text pairs across the internet. For this project, only the Vision Encoder (a patch-32 ViT) is utilized. Because of its text-aligned pre-training, its latent space is uniquely organized around human *semantic concepts* (e.g., "red", "sedan", "convertable") rather than pure pixel structures.
    - **Training & Fine-Tuning:** Initial integration started with a "Linear Probe" approach—freezing the heavy foundational weights to preserve its generalized multimodal intelligence and training a lightweight Multi-Layer Perceptron (MLP) head on top. To push performance further on the low-resolution domain, the last 6 layers of the vision encoder were unfrozen and fine-tuned alongside the ArcFace loss function, mapping broad semantic concepts to specific neighborhood vehicle IDs.
 
-**Key Takeaway:** The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
+Note: The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
 
 [![6 minute demo of the system](Demo/demo_thumbnail.jpg)](https://youtu.be/cz_V1ULSeiE)
 <p align="center"><i>Click photo to play full demo</i></p>
