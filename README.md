@@ -126,7 +126,8 @@ Because of the low-quality input data, standard classification techniques platea
 
 **Key Takeaway:** The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
 
-[![6 minute demo of the system](https://img.youtube.com/vi/cz_V1ULSeiE/0.jpg)](https://youtu.be/cz_V1ULSeiE)
+[![6 minute demo of the system](Demo/demo_thumbnail.jpg)](https://youtu.be/cz_V1ULSeiE)
+<p align="center"><i>Click photo to play 6 minute demo of the system</i></p>
 
 ## Challenges
 
