@@ -81,10 +81,10 @@ A pre-trained YOLO model detects and tracks vehicles in real-time from a live ca
 
 ## Classification
 **Multi-Architecture Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
-- **ResNet-IBN (ReID)** 
-- **EfficientNet-B0** 
-- **Vision Transformer (ViT)** 
-- **OpenAI CLIP** 
+- **Embedding CNN (ResNet-IBN)** 
+- **Classification CNN (EfficientNet-B0)** 
+- **Structural-Vision Transformer (ViT)** 
+- **Semantic-Vision Transformer (OpenAI CLIP)** 
 
  **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
 <br>
