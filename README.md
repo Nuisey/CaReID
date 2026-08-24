@@ -113,9 +113,6 @@ Labeling mass amounts of data was the most challenging part of this project. In 
 
 ---
 ## Model Training Strategies
-
-[6 minute demo of the system](https://youtu.be/cz_V1ULSeiE)
-
 Because of the low-quality input data, standard classification techniques plateaued early. To overcome this, I iteratively trained and evaluated multiple architectures and loss functions:
 
 1. **Convolutional Neural Networks (CNN):** 
@@ -128,6 +125,8 @@ Because of the low-quality input data, standard classification techniques platea
    - **Strategy:** Initial attempts using Parameter-Efficient Fine-Tuning (PEFT) with LoRA at a low rank (r=16) struggled to learn (19% accuracy). Success was achieved by increasing the LoRA rank/alpha (r=64) and coupling it with the ArcFace loss function.
 
 **Key Takeaway:** The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
+
+[![6 minute demo of the system](https://img.youtube.com/vi/cz_V1ULSeiE/0.jpg)](https://youtu.be/cz_V1ULSeiE)
 
 ## Challenges
 
