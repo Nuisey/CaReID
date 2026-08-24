@@ -33,7 +33,7 @@ flowchart TD
         B -->|Crops Vehicle| D[Image Preprocessing]
   
         D --> E[ResNet-IBN Model]
-        D --> F[CNN Model]
+        D --> F[EfficientNet Model]
         D --> G[ViT Model]
         D --> H[CLIP Model]
   
@@ -82,7 +82,7 @@ A pre-trained YOLO model detects and tracks vehicles in real-time from a live ca
 ## Classification
 **Multi-Architecture Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
 - **ResNet-IBN (ReID)** 
-- **Custom CNN** 
+- **EfficientNet-B0** 
 - **Vision Transformer (ViT)** 
 - **OpenAI CLIP** 
 
@@ -117,7 +117,7 @@ Because of the low-quality input data, standard classification techniques platea
 1. **ResNet-IBN (ReID Baseline):**
    - **Strategy:** Based on the `regob/vehicle_reid` repository, I fine-tuned a pre-trained **ResNet50-IBN** (Instance-Batch Normalization) model. Unlike the subsequent architectures which struggled on this difficult dataset without metric learning, this backbone was robust enough to learn robust generalized vehicle features using just standard Cross-Entropy (ID) loss.
 
-2. **Convolutional Neural Networks (CNN):** 
+2. **EfficientNet-B0:** 
    - **Strategy:** I started with standard classification on an EfficientNet-B0, but validation accuracy hovered around 24-65% even with unfreezing layers and data augmentations. I pivoted to treating the task as a Re-Identification (ReID) problem by applying the **ArcFace loss function** (which maximizes intra-class similarity and inter-class discrepancy), resulting in robust feature separation.
    
 3. **CLIP (Contrastive Language-Image Pre-Training):**
