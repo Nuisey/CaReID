@@ -1,5 +1,5 @@
 # CarReID
-(Warning: the README is still a work in process. Due to deadlines, certain sections are not elaborated on enough or in need of polishing. I am expecting to have a finished version by 8/27)
+(Warning: the README is still a work in process. Due to deadlines, certain sections are not elaborated on enough or in need of polishing. I am expecting to have a finished version by 8/26)
 
 **Abstract:** CarReID is a local computer vision system that identifies, tracks, and logs neighborhood vehicles using a combination of object detection and classification models. The purpose is to provide awareness of vehicle movements within an area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color. The data is compiled and visualized on a secure, interactive local web dashboard.
 
