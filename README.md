@@ -80,7 +80,7 @@ A pre-trained YOLO model detects and tracks vehicles in real-time from a live ca
 <br>
 
 ## Classification
-**Ensemble Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
+**Multi-Architecture Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
 - **ResNet-IBN (ReID)** 
 - **Custom CNN** 
 - **Vision Transformer (ViT)** 
@@ -99,17 +99,16 @@ Labeling mass amounts of data was the most challenging part of this project. In 
  - **< 2 votes:** Low confidence or completely new vehicle (flagged as `Unseen Car`).
 <br>
 
- **Bulk Labeling**
- Easily confirm/deny hundreds of images a minute
- ![Alt Text](image-2.png)
-<br>
-
 **AI Vision Verification:** A background worker utilizes the Gemini 3.5-flash Vision API to analyze bursts of images for vehicles that got `Exactly 2 votes`. If the LLM's analysis agrees with the local models' prediction, the track is automatically synced and confirmed.
 <p align="center">
   <img src="image.png" width="45%" />
   <img src="image-1.png" width="51%" />
 </p>
+<br>
 
+ **Bulk Labeling**
+ Easily confirm/deny hundreds of images a minute
+ ![Alt Text](image-2.png)
 
 ---
 ## Model Training Strategies
