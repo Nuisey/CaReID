@@ -117,7 +117,7 @@ Labeling mass amounts of data was the most challenging part of this project. In 
 Because of the low-quality input data, standard classification techniques plateaued early. To overcome this, I iteratively trained and evaluated multiple architectures and loss functions:
 
 1. **ResNet-IBN**
-   - **Origin:** Adapted from the `regob/vehicle_reid` repository (which is built upon a popular Person Re-Identification framework).
+   - **Source:** Adapted from the `regob/vehicle_reid` repository (which is built upon a popular Person Re-Identification framework).
    - **Architecture:** This model utilizes a **ResNet50-IBN** backbone. IBN (Instance-Batch Normalization) is a specialized architectural tweak that combines Instance Normalization and Batch Normalization. Instance Normalization provides *appearance invariance* (making the model robust to shifts in lighting, weather, and camera angles), while Batch Normalization preserves content structure. This makes it an incredibly powerful backbone for projecting images into a robust, high-dimensional vector space.
    - **Training & Fine-Tuning:** The model was fine-tuned on the custom neighborhood dataset using standard Cross-Entropy (ID) loss over 40 epochs. Unlike the subsequent models that required specialized metric learning to converge, this IBN architecture was robust enough to learn distinct vehicle embeddings directly from standard classification techniques.
 
