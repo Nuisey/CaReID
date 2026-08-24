@@ -90,7 +90,7 @@ A pre-trained YOLO model detects and tracks vehicles in real-time from a live ca
 <br>
 
 ## Labeling
-Labeling mass amounts of data was the most challenging part of this project. In order to make the process more efficient, I implemented:
+Labeling mass amounts of data was the most challenging part of this project. In order to get a baseline dataset for the models, I had to label 3,000 images manually. To make the process more efficient, I implemented:
  
  **Intelligent Routing**
   Based on the consensus, the system routes the images to different confidence tiers:
@@ -115,10 +115,10 @@ Labeling mass amounts of data was the most challenging part of this project. In 
 Because of the low-quality input data, standard classification techniques plateaued early. To overcome this, I iteratively trained and evaluated multiple architectures and loss functions:
 
 1. **ResNet-IBN (ReID Baseline):**
-   - **Strategy:** Based on the `regob/vehicle_reid` repository, I fine-tuned a pre-trained **ResNet50-IBN** (Instance-Batch Normalization) model. Unlike the subsequent architectures which struggled on this difficult dataset without metric learning, this backbone was robust enough to learn robust generalized vehicle features using just standard Cross-Entropy (ID) loss.
+   - **Strategy:** Based on the `regob/vehicle_reid` repository, I fine-tuned a pre-trained **ResNet50-IBN** (Instance-Batch Normalization) model. Unlike the subsequent architectures which struggled on this difficult dataset without metric learning, this backbone was robust enough to learn generalized vehicle features using just standard Cross-Entropy (ID) loss.
 
 2. **EfficientNet-B0:** 
-   - **Strategy:** I started with standard classification on an EfficientNet-B0, but validation accuracy hovered around 24-65% even with unfreezing layers and data augmentations. I pivoted to treating the task as a Re-Identification (ReID) problem by applying the **ArcFace loss function** (which maximizes intra-class similarity and inter-class discrepancy), resulting in robust feature separation.
+   - **Strategy:** I started with standard classification on an EfficientNet-B0, but validation accuracy hovered around 65% even with unfreezing layers and data augmentations. I pivoted to treating the task as a Re-Identification (ReID) problem by applying the **ArcFace loss function** (which maximizes intra-class similarity and inter-class discrepancy), resulting in robust feature separation.
    
 3. **CLIP (Contrastive Language-Image Pre-Training):**
    - **Strategy:** Initial linear probing on frozen features gave a decent baseline of 61%. To push performance further, I fine-tuned the last 6 layers of the vision encoder and integrated the ArcFace loss, which successfully adapted CLIP's generalized embeddings to my specific low-res vehicle domain.
