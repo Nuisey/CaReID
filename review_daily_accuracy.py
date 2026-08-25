@@ -66,10 +66,9 @@ def review_date(target_date):
         print(f"Model Guessed: {label} (Conf: {rows[0].get('confidence', 'N/A')})")
         
         try:
-            img = Image.open(img_path)
-            img.show()
-        except:
-            print(f"(Could not automatically display {img_path})")
+            os.startfile(os.path.abspath(img_path))
+        except Exception as e:
+            print(f"(Could not automatically display {img_path}: {e})")
             
         ans = ""
         while ans not in ['y', 'n', 's']:
