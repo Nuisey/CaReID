@@ -140,12 +140,7 @@ Note: The major breakthrough across all architectures was the introduction of th
 
 # Results
 
-## Challenges
-
-**Low-Quality Real-World Data**
-The most significant hurdle in this project was dealing with the reality of edge-device footage: messy, low-resolution data. The average image extracted by YOLO and fed into the classification pipeline has a resolution of roughly **130x80 pixels**. At this quality, it is physically impossible to discern license plates, manufacturer badges, or distinct trim text. Compounding this issue are the wildly varying lighting and weather conditions. This constraint forced the models to learn solely from the car's macroscopic features (shape, headlight placement, grill proportions), and challenged me to experiment with advanced training strategies to build a robust ensemble.
-
-## Security and Ethics
+# Security and Ethics
 
 Data privacy is the cornerstone of this neighborhood tracking system. Because the project monitors community vehicle movements, several strict ethical and security measures dictate its design:
 
