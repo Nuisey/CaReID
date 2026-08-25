@@ -1,7 +1,8 @@
 param (
     [ValidateSet("start", "stop")]
     [string]$Action = "start",
-    [string]$VideoPath = "Demo/Demo files/best5min.mp4"
+    [string]$VideoPath = "Demo/Demo files/best5min.mp4",
+    [switch]$WarmupOnly
 )
 
 $ProjectDirectory = "C:\Users\nolan\OneDrive\Programming\CarID_Final"
@@ -24,9 +25,9 @@ function Start-System {
     Write-Host "Starting CarID Demo System..." -ForegroundColor Yellow
     
     Write-Host "Clearing activity feed and old demo images..." -ForegroundColor Cyan
-    if (Test-Path "Data\CarLabels_Unprocessed.csv") {
-        Set-Content -Path "Data\CarLabels_Unprocessed.csv" -Value "filename,direction,predicted_label,ID,confidence,track_id,cnn_guess,vit_guess,clip_guess,resnet_guess"
-    }
+    # if (Test-Path "Data\CarLabels_Unprocessed.csv") {
+    #     Set-Content -Path "Data\CarLabels_Unprocessed.csv" -Value "filename,direction,predicted_label,ID,confidence,track_id,cnn_guess,vit_guess,clip_guess,resnet_guess"
+    # }
     if (Test-Path "Data\Demo_Output\Unconfirmed") {
         Remove-Item -Path "Data\Demo_Output\Unconfirmed\*" -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -46,8 +47,12 @@ function Start-System {
     Write-Host "Starting YOLO Tracker Demo on $VideoPath..."
     Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python YOLO_Identification_demo.py --video '$VideoPath'`""
 
-    Write-Host "Starting ReID Inference..."
-    Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder_Demo --processed_folder Data/Demo_Output/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
+    if (-not $WarmupOnly) {
+        Write-Host "Starting ReID Inference..."
+        Start-Process powershell -WindowStyle Minimized -ArgumentList "-NoExit -Command `"conda activate CarReID; cd '$ProjectDirectory'; python realtime_identifier_with_labels.py --model_opts Brain/opts.yaml --checkpoint Brain/Final10232025.pth --gallery_csv_path Data/Gallery/Gallery.csv --label_mapping Data/label_map.csv --data_dir Data/Gallery/LabeledCarDataPhotos --watch_folder HotFolder_Demo --processed_folder Data/Demo_Output/Unconfirmed --log_csv Data/CarLabels_Unprocessed.csv`""
+    } else {
+        Write-Host "WarmupOnly mode: ReID inference is disabled, system will stay in warming up state." -ForegroundColor Magenta
+    }
 
     Write-Host "Resetting map state for demo..." -ForegroundColor Cyan
     python reset_demo_state.py

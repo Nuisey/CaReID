@@ -90,8 +90,9 @@ def gemini_worker():
                 contents = [prompt_text]
                 valid = False
                 for img_name in event['burst_images']:
-                    img_path = os.path.join(UNCONFIRMED_DIR, img_name)
-                    if os.path.exists(img_path):
+                    img_dir = find_image_path(img_name)
+                    if img_dir:
+                        img_path = os.path.join(img_dir, img_name)
                         contents.append(PIL.Image.open(img_path))
                         valid = True
                         
@@ -142,7 +143,8 @@ def gemini_worker():
                             auto_sync_ids.append(t_id)
                             
                 if auto_sync_ids:
-                    sync_tracks(auto_sync_ids, feed)
+                    # MOCK MODE: sync_tracks(auto_sync_ids, feed)
+                    pass
                         
         except Exception as e:
             add_sync_log(f"Worker Error: {str(e)[:100]}")
@@ -956,17 +958,18 @@ def sync_tracks(track_ids, feed):
             
             for img in event['burst_images']:
                 to_delete_filenames.add(img)
-                src = os.path.join(UNCONFIRMED_DIR, img)
-                if os.path.exists(src):
-                    shutil.move(src, os.path.join(car_dir, img))
+                img_dir = find_image_path(img)
+                if img_dir:
+                    src = os.path.join(img_dir, img)
+                    # MOCK MODE: shutil.move(src, os.path.join(car_dir, img))
                     
             for sub_id in event.get('all_track_ids', [t_id]):
                 if sub_id in gemini_results:
                     undo_track["gemini_results"][sub_id] = gemini_results[sub_id]
-                    del gemini_results[sub_id]
+                    # MOCK MODE: del gemini_results[sub_id]
                 if sub_id in gemini_tasks:
                     undo_track["gemini_tasks"][sub_id] = gemini_tasks[sub_id]
-                    del gemini_tasks[sub_id]
+                    # MOCK MODE: del gemini_tasks[sub_id]
                     
             undo_tracks.append(undo_track)
             
@@ -1009,19 +1012,20 @@ def api_trash_track():
             undo_track["images"] = list(event.get('burst_images', []))
             
             for img in event.get('burst_images', []):
-                src = os.path.join(UNCONFIRMED_DIR, img)
-                dst = os.path.join(TRASH_UNCONFIRMED_DIR, img)
-                if os.path.exists(src):
-                    shutil.move(src, dst)
+                img_dir = find_image_path(img)
+                if img_dir:
+                    src = os.path.join(img_dir, img)
+                    dst = os.path.join(TRASH_UNCONFIRMED_DIR, img)
+                    # MOCK MODE: shutil.move(src, dst)
             break
             
     for sub_id in all_ids_to_clean:
         if sub_id in gemini_tasks:
             undo_track["gemini_tasks"][sub_id] = gemini_tasks[sub_id]
-            del gemini_tasks[sub_id]
+            # MOCK MODE: del gemini_tasks[sub_id]
         if sub_id in gemini_results:
             undo_track["gemini_results"][sub_id] = gemini_results[sub_id]
-            del gemini_results[sub_id]
+            # MOCK MODE: del gemini_results[sub_id]
             
     save_sync_undo_state({"type": "trash", "tracks": [undo_track]})
     save_gemini_state()

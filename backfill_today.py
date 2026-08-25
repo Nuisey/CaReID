@@ -69,7 +69,7 @@ def main():
                         with torch.no_grad():
                             cnn_out = cnn(cnn_input)
                             cnn_pred = torch.argmax(cnn_out, dim=1).item()
-                            cnn_conf = torch.max(F.softmax(cnn_out, dim=1)).item()
+                            cnn_conf = (torch.max(cnn_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                             cnn_str = f"{index_to_string.get(cnn_pred, str(cnn_pred))} ({cnn_conf:.2f})"
                         
                         # CLIP inference
@@ -77,7 +77,7 @@ def main():
                         with torch.no_grad():
                             clip_out = clip(clip_input)
                             clip_pred = torch.argmax(clip_out, dim=1).item()
-                            clip_conf = torch.max(F.softmax(clip_out, dim=1)).item()
+                            clip_conf = (torch.max(clip_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                             clip_str = f"{index_to_string.get(clip_pred, str(clip_pred))} ({clip_conf:.2f})"
                             
                         # ViT inference
@@ -85,7 +85,7 @@ def main():
                         with torch.no_grad():
                             vit_out = vit(vit_input)
                             vit_pred = torch.argmax(vit_out, dim=1).item()
-                            vit_conf = torch.max(F.softmax(vit_out, dim=1)).item()
+                            vit_conf = (torch.max(vit_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                             vit_str = f"{index_to_string.get(vit_pred, str(vit_pred))} ({vit_conf:.2f})"
                             
                         row[6] = cnn_str

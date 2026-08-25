@@ -187,7 +187,7 @@ class NewImageHandler(FileSystemEventHandler):
                 with torch.no_grad():
                     cnn_out = cnn(cnn_input)
                     cnn_pred = torch.argmax(cnn_out, dim=1).item()
-                    cnn_conf = torch.max(F.softmax(cnn_out, dim=1)).item()
+                    cnn_conf = (torch.max(cnn_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                     cnn_label = self.test_label_map.get(cnn_pred, str(cnn_pred))
                     cnn_str = f"{cnn_label} ({cnn_conf:.2f})"
                 
@@ -196,7 +196,7 @@ class NewImageHandler(FileSystemEventHandler):
                 with torch.no_grad():
                     clip_out = clip(clip_input)
                     clip_pred = torch.argmax(clip_out, dim=1).item()
-                    clip_conf = torch.max(F.softmax(clip_out, dim=1)).item()
+                    clip_conf = (torch.max(clip_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                     clip_label = self.test_label_map.get(clip_pred, str(clip_pred))
                     clip_str = f"{clip_label} ({clip_conf:.2f})"
                     
@@ -205,7 +205,7 @@ class NewImageHandler(FileSystemEventHandler):
                 with torch.no_grad():
                     vit_out = vit(vit_input)
                     vit_pred = torch.argmax(vit_out, dim=1).item()
-                    vit_conf = torch.max(F.softmax(vit_out, dim=1)).item()
+                    vit_conf = (torch.max(vit_out, dim=1)[0] / 30.0).clamp(0.0, 1.0).item()
                     vit_label = self.test_label_map.get(vit_pred, str(vit_pred))
                     vit_str = f"{vit_label} ({vit_conf:.2f})"
                     
@@ -247,6 +247,12 @@ class NewImageHandler(FileSystemEventHandler):
                 final_label = "Unseen Car"
                 target_folder = os.path.join(data_dir, "Unseen")
                 predicted_id = "Unseen"
+            
+        if final_label != "Unseen Car":
+            for k, v in self.label_mapping.items():
+                if v == final_label:
+                    predicted_id = k
+                    break
             
         print(f"  -> Final Label Assigned: {final_label}")
         os.makedirs(target_folder, exist_ok=True)

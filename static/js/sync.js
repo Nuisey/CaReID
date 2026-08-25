@@ -49,13 +49,14 @@ async function fetchSyncStatus() {
         console.error("Error fetching sync status:", error);
     }
 }
+let mockHiddenTracks = new Set();
 
 function renderGrid(tracks) {
     const grid = document.getElementById('sync-grid');
     grid.innerHTML = '';
     
     // Only show tracks where Gemini has checked it, and it DISAGREES with YOLO's label
-    const conflictingTracks = tracks.filter(t => t.status === 'checked' && !t.gemini_agrees);
+    const conflictingTracks = tracks.filter(t => t.status === 'checked' && !t.gemini_agrees && !mockHiddenTracks.has(t.track_id));
     
     if (conflictingTracks.length === 0) {
         grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #666; padding: 40px; font-size: 18px; background: #111; border-radius: 8px; border: 1px dashed #333;">No conflicting images to review! Gemini agrees with all remaining tracks.</div>';
@@ -163,19 +164,9 @@ window.toggleSelection = function(trackId, isChecked) {
 window.updateGeminiLabel = async function(trackId, newLabel) {
     if (!newLabel.trim()) return;
     
-    // Set the label
-    await fetch('/api/update_gemini_label', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ track_id: trackId, label: newLabel })
-    });
-    
-    // Explicitly approve the sync so it pushes to the Label tab
-    await fetch('/api/approve_sync', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ track_ids: [trackId] })
-    });
+    // MOCK MODE: Hide locally
+    mockHiddenTracks.add(trackId);
+    window._lastTracksHash = null; // Force re-render
     
     fetchSyncStatus();
 }
@@ -189,11 +180,11 @@ window.submitOverride = async function(trackId) {
 
 window.trashTrack = async function(trackId) {
     if (!confirm("Are you sure you want to permanently delete this track? It will be removed from your queue completely.")) return;
-    await fetch('/api/trash_track', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ track_id: trackId })
-    });
+    
+    // MOCK MODE: Hide locally
+    mockHiddenTracks.add(trackId);
+    window._lastTracksHash = null; // Force re-render
+    
     fetchSyncStatus();
 }
 

@@ -1,5 +1,5 @@
 # CarReID
-(Warning: the README is still a work in process. Due to deadlines, certain sections are not elaborated on enough or in need of polishing. I am expecting to have a finished version by 8/26)
+(Warning: the README is still a work in process. Due to deadlines, the Result section is not complete, others are in need of polishing. I am expecting to have a finished version by 8/26)
 
 **Abstract:** CarReID is a local computer vision system that identifies, tracks, and logs neighborhood vehicles using a combination of object detection and classification models. The purpose is to provide awareness of vehicle movements within an area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color. The data is compiled and visualized on a secure, interactive local web dashboard.
 
@@ -79,17 +79,15 @@ flowchart TD
 
 ## Detection & Tracking:
 A pre-trained YOLO model detects and tracks vehicles in real-time from a live camera feed. It extracts a burst of cropped images of the vehicle that passes and by analyzing their vertical coordinate trajectories, the system determines arrival or departure status.
-<br>
 
 ## Classification
-**Multi-Architecture Inference:** The images are passed into four different models, using different strategies to offset error. The ensemble consisting of:
+**Multi-Architecture Inference:** The images are passed into four different pre-trained models, using different strategies to offset error. The ensemble consisting of:
 - **Embedding CNN (ResNet-IBN)** 
 - **Classification CNN (EfficientNet-B0)** 
 - **Standard Vision Transformer (ViT)** 
 - **Semantic-Vision Transformer (OpenAI CLIP)** 
 
  **Consensus Voting:** Instead of soft averaging confidence values, the system employs a hard-voting consensus mechanism. Each model casts a vote for a specific vehicle identity if its confidence exceeds an 80% threshold.
-<br>
 
 ## Labeling
 Labeling mass amounts of data was the most challenging part of this project. In order to get a baseline dataset for the models, I had to label 3,000 images manually. To make the process more efficient, I implemented:
@@ -135,7 +133,7 @@ Labeling mass amounts of data was the most challenging part of this project. In 
    - **Architecture:** Originally a dual-encoder model (Vision and Text) trained contrastively on hundreds of millions of image-text pairs across the internet. For this project, only the Vision Encoder (a patch-32 ViT) is utilized. Because of its text-aligned pre-training, its latent space is uniquely organized around human *semantic concepts* (e.g., "red", "sedan", "convertable") rather than pure pixel structures.
    - **Training & Fine-Tuning:** Initial integration started with a "Linear Probe" approach—freezing the heavy foundational weights to preserve its generalized multimodal intelligence and training a lightweight Multi-Layer Perceptron (MLP) head on top. To push performance further on the low-resolution domain, the last 6 layers of the vision encoder were unfrozen and fine-tuned alongside the ArcFace loss function, mapping broad semantic concepts to specific neighborhood vehicle IDs.
 
-Note: The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores.
+Note: The major breakthrough across all architectures was the introduction of the **ArcFace loss function**. Enforcing a distinct angular margin between classes allowed all models to overcome the 130x80 pixel resolution limit and converge at highly accurate validation scores. Although, since ArcFace artifically inflates confidence values,the voting system's confidence is derived from the raw cosine similarity score.
 
 [![6 minute demo of the system](Demo/demo_thumbnail.jpg)](https://youtu.be/cz_V1ULSeiE)
 <p align="center"><i>Click photo to play full demo</i></p>

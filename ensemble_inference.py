@@ -71,17 +71,17 @@ class CarClassifierEnsemble:
         with torch.no_grad():
             # EfficientNet Prediction
             eff_logits = self.efficientnet(eff_input)
-            eff_probs = torch.softmax(eff_logits, dim=1)
+            eff_probs = (eff_logits / 30.0).clamp(0.0, 1.0)
             
             # ViT Prediction
             vit_logits = self.vit(vit_input).logits
-            vit_probs = torch.softmax(vit_logits, dim=1)
+            vit_probs = (vit_logits / 30.0).clamp(0.0, 1.0)
             
             # CLIP Probe Prediction
             clip_features = self.clip_model.get_image_features(pixel_values=vit_input)
             clip_features = clip_features / clip_features.norm(p=2, dim=-1, keepdim=True)
             clip_logits = self.clip_mlp(clip_features.float())
-            clip_probs = torch.softmax(clip_logits, dim=1)
+            clip_probs = (clip_logits / 30.0).clamp(0.0, 1.0)
             
             # SOFT VOTING ENSEMBLE
             ensemble_probs = (eff_probs + vit_probs + clip_probs) / 3.0
