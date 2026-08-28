@@ -1,5 +1,4 @@
 # CarReID
-(Warning: the README is still a work in process. The Result section is not complete. I am expecting to have a finished version by 8/27)
 
 **Abstract:** CarReID is a local computer vision system that identifies, tracks, and logs neighborhood vehicles using a combination of object detection and classification models. The purpose is to provide awareness of vehicle movements within an area. It achieves this by combining YOLO-based tracking with a multi-task identification pipeline to accurately classify vehicle make, model, and color. The data is compiled and visualized on a secure, interactive local web dashboard.
 
@@ -140,6 +139,19 @@ Note: The major breakthrough across all architectures was the introduction of th
 
 # Results
 
+To validate the system's accuracy and the effectiveness of the multi-architecture ensemble, an evaluation was conducted on a validation dataset of 739 unseen vehicle images. 
+
+To ensure a test didn't have any data leakage, the baseline **ResNet-IBN** model (which relies on a distance-based search against a gallery of known images) had its gallery restricted strictly to the training set. The validation images were entirely excluded from the reference gallery. 
+In addition to this, the testing and validation data did not contain any images that were in the same burst (sighting).
+
+The **Ensemble Model** aggregated predictions from the classification CNN (EfficientNet-B0), standard ViT, and OpenAI CLIP using the system's hard-voting consensus mechanism. A minimum confidence threshold of 0.63 was required, and at least two models needed to agree on the vehicle's identity.
+
+### Validation Accuracy
+- **ResNet-IBN Baseline:** 92.4% (683 / 739 correct)
+- **Multi-Architecture Ensemble:** **98.6%** (729 / 739 correct)
+
+The results demonstrate that the ensemble approach significantly outperforms the baseline ReID model. By combining localized texture analysis (EfficientNet), global structural layout (ViT), and semantic concept understanding (CLIP), the system is able to effectively offset individual model errors and achieve near-perfect vehicle re-identification accuracy on messy, real-world neighborhood data.
+(Full report can be found under report.md)
 # Security and Ethics
 
 Data privacy is the cornerstone of this neighborhood tracking system. Because the project monitors community vehicle movements, several strict ethical and security measures dictate its design:
